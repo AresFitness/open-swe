@@ -339,13 +339,13 @@ def test_get_slack_repo_config_repo_name_only_defaults_org(
         webapp.get_slack_repo_config("fix bug in repo:langchainplus", "C123", "1.234")
     )
 
-    assert repo == {"owner": "langchain-ai", "name": "langchainplus"}
+    assert repo == {"owner": "AresFitness", "name": "langchainplus"}
 
 
 def test_get_slack_repo_config_repo_name_only_space_syntax(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """repo name (space syntax, no org) should default owner to langchain-ai."""
+    """repo name (space syntax, no org) should default owner to AresFitness."""
     threads_client = _FakeThreadsClient(raise_not_found=True)
 
     async def fake_post_slack_thread_reply(channel_id: str, thread_ts: str, text: str) -> bool:
@@ -356,4 +356,4 @@ def test_get_slack_repo_config_repo_name_only_space_syntax(
 
     repo = asyncio.run(webapp.get_slack_repo_config("fix bug in repo open-swe", "C123", "1.234"))
 
-    assert repo == {"owner": "langchain-ai", "name": "open-swe"}
+    assert repo == {"owner": "AresFitness", "name": "open-swe"}

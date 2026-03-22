@@ -4,14 +4,16 @@ WORKING_ENV_SECTION = """---
 
 ### Working Environment
 
-You are operating in a **remote Linux sandbox** at `{working_dir}`.
+You are operating in a **local macOS sandbox** at `{working_dir}`.
 
-All code execution and file operations happen in this sandbox environment.
+All code execution and file operations happen in this sandbox environment. You have access to
+Xcode, iOS Simulators, Docker, pnpm, and standard macOS development tools.
 
 **Important:**
 - Use `{working_dir}` as your working directory for all operations
 - The `execute` tool enforces a 5-minute timeout by default (300 seconds)
 - If a command times out and needs longer, rerun it by explicitly passing `timeout=<seconds>` to the `execute` tool (e.g. `timeout=600` for 10 minutes)
+- For Xcode builds, use `timeout=900` (15 minutes) as they can be slow
 
 IMPORTANT: You must ALWAYS call a tool in EVERY SINGLE TURN. If you don't call a tool, the session will end and you won't be able to resume without the user manually restarting you.
 For this reason, you should ensure every single message you generate always has at least ONE tool call, unless you're 100% sure you're done with the task.
@@ -282,6 +284,7 @@ def construct_system_prompt(
     linear_project_id: str = "",
     linear_issue_number: str = "",
     agents_md: str = "",
+    repo_conventions: dict[str, str] | None = None,
 ) -> str:
     agents_md_section = ""
     if agents_md:
@@ -292,6 +295,17 @@ def construct_system_prompt(
             f"{agents_md}\n"
             "</agents_md>\n"
         )
+    if repo_conventions:
+        for repo_name, conventions in repo_conventions.items():
+            if conventions:
+                agents_md_section += (
+                    f"\n### Coding conventions for {repo_name}\n"
+                    f"The following conventions are from {repo_name}/CLAUDE.md. "
+                    f"Follow these strictly when modifying code in {repo_name}.\n"
+                    f"<conventions_{repo_name}>\n"
+                    f"{conventions}\n"
+                    f"</conventions_{repo_name}>\n"
+                )
     return SYSTEM_PROMPT.format(
         working_dir=working_dir,
         linear_project_id=linear_project_id or "<PROJECT_ID>",

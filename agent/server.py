@@ -34,6 +34,11 @@ from .middleware import (
 )
 from .prompt import construct_system_prompt
 from .tools import (
+    backend_codegen,
+    backend_lint,
+    backend_local,
+    backend_test,
+    backend_typecheck,
     commit_and_open_pr,
     fetch_url,
     github_comment,
@@ -52,6 +57,7 @@ SANDBOX_CREATION_TIMEOUT = 180
 SANDBOX_POLL_INTERVAL = 1.0
 
 from .utils.agents_md import read_agents_md_in_sandbox
+from .utils.claude_md import read_claude_md_in_sandbox
 from .utils.github import (
     _CRED_FILE_PATH,
     cleanup_git_credentials,
@@ -385,6 +391,12 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
     linear_issue_number = linear_issue.get("linear_issue_number", "")
     agents_md = await read_agents_md_in_sandbox(sandbox_backend, repo_dir)
 
+    # Read CLAUDE.md conventions from the repo
+    repo_conventions: dict[str, str] = {}
+    claude_md = await read_claude_md_in_sandbox(sandbox_backend, repo_dir)
+    if claude_md and repo_name:
+        repo_conventions[repo_name] = claude_md
+
     logger.info("Returning agent with sandbox for thread %s", thread_id)
     return create_deep_agent(
         model=make_model("anthropic:claude-opus-4-6", temperature=0, max_tokens=20_000),
@@ -393,6 +405,7 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             linear_project_id=linear_project_id,
             linear_issue_number=linear_issue_number,
             agents_md=agents_md,
+            repo_conventions=repo_conventions,
         ),
         tools=[
             http_request,
@@ -401,6 +414,11 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             linear_comment,
             slack_thread_reply,
             github_comment,
+            backend_test,
+            backend_typecheck,
+            backend_lint,
+            backend_codegen,
+            backend_local,
         ],
         backend=sandbox_backend,
         middleware=[
