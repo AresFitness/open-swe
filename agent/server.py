@@ -43,8 +43,12 @@ from .tools import (
     fetch_url,
     github_comment,
     http_request,
+    ios_make,
     linear_comment,
+    simulator_control,
     slack_thread_reply,
+    xcode_build,
+    xcode_test,
 )
 from .utils.auth import resolve_github_token
 from .utils.model import make_model
@@ -250,6 +254,11 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
     repo_owner = repo_config.get("owner")
     repo_name = repo_config.get("name")
 
+    # Additional repos to clone alongside the primary repo
+    additional_repos = config["configurable"].get("additional_repos", [
+        {"owner": "AresFitness", "name": "amp-ios"},
+    ])
+
     if thread_id is None or not graph_loaded_for_execution(config):
         logger.info("No thread_id or not for execution, returning agent without sandbox")
         return create_deep_agent(
@@ -386,22 +395,50 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
                 checkout_result.output[:200] if checkout_result.output else "",
             )
 
+    # Clone additional repos (e.g., amp-ios alongside the primary backend repo)
+    for extra_repo in additional_repos:
+        extra_owner = extra_repo.get("owner", repo_owner)
+        extra_name = extra_repo.get("name")
+        if extra_name and extra_name != repo_name:
+            try:
+                logger.info("Cloning additional repo %s/%s", extra_owner, extra_name)
+                await _clone_or_pull_repo_in_sandbox(
+                    sandbox_backend, extra_owner, extra_name, github_token
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to clone additional repo %s/%s, continuing without it",
+                    extra_owner,
+                    extra_name,
+                    exc_info=True,
+                )
+
     linear_issue = config["configurable"].get("linear_issue", {})
     linear_project_id = linear_issue.get("linear_project_id", "")
     linear_issue_number = linear_issue.get("linear_issue_number", "")
     agents_md = await read_agents_md_in_sandbox(sandbox_backend, repo_dir)
 
-    # Read CLAUDE.md conventions from the repo
+    # Read CLAUDE.md conventions from all repos
     repo_conventions: dict[str, str] = {}
     claude_md = await read_claude_md_in_sandbox(sandbox_backend, repo_dir)
     if claude_md and repo_name:
         repo_conventions[repo_name] = claude_md
+    for extra_repo in additional_repos:
+        extra_name = extra_repo.get("name")
+        if extra_name and extra_name != repo_name:
+            extra_dir = await aresolve_repo_dir(sandbox_backend, extra_name)
+            extra_claude_md = await read_claude_md_in_sandbox(sandbox_backend, extra_dir)
+            if extra_claude_md:
+                repo_conventions[extra_name] = extra_claude_md
+
+    # Use the sandbox work dir as working_dir so the agent sees all repos
+    work_dir = await aresolve_sandbox_work_dir(sandbox_backend)
 
     logger.info("Returning agent with sandbox for thread %s", thread_id)
     return create_deep_agent(
         model=make_model("anthropic:claude-opus-4-6", temperature=0, max_tokens=20_000),
         system_prompt=construct_system_prompt(
-            repo_dir,
+            work_dir,
             linear_project_id=linear_project_id,
             linear_issue_number=linear_issue_number,
             agents_md=agents_md,
@@ -419,6 +456,10 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             backend_lint,
             backend_codegen,
             backend_local,
+            ios_make,
+            xcode_build,
+            xcode_test,
+            simulator_control,
         ],
         backend=sandbox_backend,
         middleware=[
