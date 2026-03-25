@@ -294,22 +294,28 @@ def backend_local(
         return {"success": False, "error": f"{type(e).__name__}: {e}", "output": ""}
 
 
-def backend_codegen() -> dict[str, Any]:
-    """Run code generation for the backend (GraphQL types, etc).
+def backend_generate() -> dict[str, Any]:
+    """Run the full backend generation pipeline after schema changes.
+
+    Runs `pnpm generate` which executes:
+    gql-compile → cf2tf → codegen → generate:deeplinks
+
+    This is the correct command after modifying the GraphQL schema.
+    Use this instead of running codegen alone.
 
     Returns:
         Dictionary with success status, output, and exit_code.
     """
     try:
         sandbox_backend, repo_dir = _get_sandbox_and_repo_dir()
-        cmd = f"cd {repo_dir} && pnpm codegen --no-colors 2>&1"
+        cmd = f"cd {repo_dir} && pnpm generate 2>&1"
         result = sandbox_backend.execute(cmd)
         return {
             "success": result.exit_code == 0,
-            "error": None if result.exit_code == 0 else "Codegen failed",
+            "error": None if result.exit_code == 0 else "Generate failed",
             "output": result.output or "",
             "exit_code": result.exit_code,
         }
     except Exception as e:
-        logger.exception("backend_codegen failed")
+        logger.exception("backend_generate failed")
         return {"success": False, "error": f"{type(e).__name__}: {e}", "output": ""}

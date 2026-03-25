@@ -258,11 +258,60 @@ When you have completed your implementation, follow these steps in order:
 Always call `commit_and_open_pr` followed by the appropriate reply tool once implementation is complete and code quality checks pass."""
 
 
+MULTI_REPO_SECTION = """---
+
+### Multi-Repository Workspace
+
+You have access to multiple repositories in your workspace:
+
+**`RedefinedFitness/`** — Backend (TypeScript, pnpm monorepo)
+- GraphQL API (Apollo Server + AppSync)
+- Lambda functions, containers, infrastructure
+- Key commands: `pnpm generate`, `pnpm typecheck`, `pnpm lint`
+
+**`amp-ios/`** — iOS app (Swift, Tuist + Xcode)
+- SwiftUI + UIKit, 35+ modules in `Modules/`
+- Apollo GraphQL client (consumes backend schema)
+- Key commands: `make project`, `make backend`, `xcodebuild -scheme Amp`
+
+#### GraphQL Schema Relationship
+
+The backend **defines** the GraphQL schema. The iOS app **consumes** it via Apollo codegen.
+Any schema change in the backend requires syncing to iOS:
+
+1. Backend schema files: `amplify/backend/api/` and `packages/amp-shared/src/API.ts`
+2. iOS schema file: `Modules/AmpNetworking/Sources/Graph/Schema.graphql`
+3. iOS generated types: `Modules/AmpNetworking/Sources/Graph/`
+
+#### Cross-Repo Feature Workflow
+
+When implementing a feature that spans both repos, follow this order:
+
+1. **Backend changes** — Modify schema, resolvers, business logic in `RedefinedFitness/`
+2. **Backend generate** — Run `backend_generate` tool (runs `pnpm generate`: gql-compile → cf2tf → codegen → deeplinks)
+3. **Backend typecheck** — Run `backend_typecheck` to verify no type errors
+4. **Start local backend** — Run `backend_local(action="up")` to start all services locally
+5. **Point iOS at local backend** — Run `ios_make(target="env_local")` with `AMP_ENV=dev` (auto-detects LAN IP, points iOS at local Apollo Router on port 4000)
+6. **Pull schema to iOS** — Run `ios_make(target="backend")` to introspect the local server and regenerate Swift types
+7. **iOS changes** — Modify Swift code in `amp-ios/` to consume the new schema
+8. **Build iOS** — Run `xcode_build()` to verify it compiles
+9. **Test** — Run relevant tests in both repos
+10. **Create PRs** — Use `cross_repo_commit_and_open_prs` to create linked PRs in both repos
+
+#### Important Notes
+- Always implement backend first, then iOS — the iOS schema depends on the backend
+- When modifying the GraphQL schema, always run `pnpm generate` (not just `pnpm codegen`)
+- Use `ios_make(target="env_local")` to point iOS at the local backend for schema introspection
+- The iOS app reads its endpoint from `Modules/AmpConfiguration/Sources/amplifyconfiguration.json`
+- `make backend` in iOS introspects whatever endpoint is configured and regenerates Swift types"""
+
+
 SYSTEM_PROMPT = (
     WORKING_ENV_SECTION
     + FILE_MANAGEMENT_SECTION
     + TASK_OVERVIEW_SECTION
     + TASK_EXECUTION_SECTION
+    + MULTI_REPO_SECTION
     + TOOL_USAGE_SECTION
     + TOOL_BEST_PRACTICES_SECTION
     + CODING_STANDARDS_SECTION
