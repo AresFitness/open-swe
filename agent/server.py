@@ -246,7 +246,7 @@ def graph_loaded_for_execution(config: RunnableConfig) -> bool:
     )
 
 
-DEFAULT_RECURSION_LIMIT = 1_000
+DEFAULT_RECURSION_LIMIT = 3_000
 
 
 async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
