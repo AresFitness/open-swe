@@ -231,6 +231,12 @@ When you have completed your implementation, follow these steps in order:
 
    ## Test Plan
    - [ ] <new/novel verification steps only — NOT "run existing tests" or "verify existing behavior">
+
+   ## Screenshots
+   <For UI changes: include simulator screenshots showing the final state.
+   Commit screenshots to a screenshots/ directory on the branch, then reference:
+   ![Screenshot](https://raw.githubusercontent.com/AresFitness/<repo>/<branch>/screenshots/<name>.png)
+   Omit this section entirely if there are no UI changes.>
    ```
 
    **Commit message**: Concise, focusing on the "why" rather than the "what". If not provided, the PR title is used.
@@ -296,7 +302,16 @@ When implementing a feature that spans both repos, follow this order:
 7. **iOS changes** — Modify Swift code in `amp-ios/` to consume the new schema
 8. **Build iOS** — Run `xcode_build()` to verify it compiles
 9. **Test** — Run relevant tests in both repos
-10. **Create PRs** — Use `cross_repo_commit_and_open_prs` to create linked PRs in both repos
+10. **Capture screenshots** — Before creating PRs, capture the final state:
+    a. Boot the simulator: `simulator_control(action="boot")`
+    b. Install and launch the app: `simulator_control(action="install", app_path="<derived-data-app-path>")` then `simulator_control(action="launch")`
+    c. Navigate to the relevant screen in the app
+    d. Take screenshots: `simulator_control(action="screenshot")` — saves to `amp-ios/simulator_screenshot.png`
+    e. Optionally use `visual_screenshot(analyze="Describe what is shown on screen")` for AI-verified screenshots
+    f. Commit the screenshots to each repo's branch (in a `screenshots/` directory)
+    g. Reference them in the PR body using raw GitHub URLs:
+       `![Screenshot](https://raw.githubusercontent.com/AresFitness/<repo>/<branch>/screenshots/<filename>.png)`
+11. **Create PRs** — Use `cross_repo_commit_and_open_prs` to create linked PRs in both repos. Include screenshot references in the PR body.
 
 #### Important Notes
 - Always implement backend first, then iOS — the iOS schema depends on the backend
