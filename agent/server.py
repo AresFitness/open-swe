@@ -41,6 +41,7 @@ from .tools import (
     backend_typecheck,
     commit_and_open_pr,
     cross_repo_commit_and_open_prs,
+    update_dashboard,
     fetch_url,
     github_comment,
     http_request,
@@ -470,6 +471,7 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             visual_click,
             visual_type,
             visual_swipe,
+            update_dashboard,
         ],
         backend=sandbox_backend,
         middleware=[

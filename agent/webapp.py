@@ -1095,6 +1095,36 @@ async def health_check() -> dict[str, str]:
     return {"status": "healthy"}
 
 
+# --- Sandbox file serving (screenshots, etc.) ---
+
+SANDBOX_ROOT = os.environ.get("LOCAL_SANDBOX_ROOT_DIR", "/tmp/amp-swe-sandbox")
+
+
+@app.get("/files/{path:path}")
+async def serve_sandbox_file(path: str):
+    """Serve files from the sandbox directory (screenshots, build artifacts, etc.)."""
+    from fastapi.responses import FileResponse
+
+    full_path = os.path.join(SANDBOX_ROOT, path)
+    # Security: prevent path traversal
+    real_path = os.path.realpath(full_path)
+    real_root = os.path.realpath(SANDBOX_ROOT)
+    if not real_path.startswith(real_root):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not os.path.isfile(real_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(real_path)
+
+
+# --- Dashboard static files (production) ---
+
+_dashboard_dir = os.path.join(os.path.dirname(__file__), "..", "dashboard", "dist")
+if os.path.isdir(_dashboard_dir):
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/dashboard", StaticFiles(directory=_dashboard_dir, html=True), name="dashboard")
+
+
 _SUPPORTED_GH_EVENTS = frozenset(
     ["issue_comment", "issues", "pull_request_review_comment", "pull_request_review"]
 )

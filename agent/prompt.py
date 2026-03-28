@@ -318,7 +318,35 @@ When implementing a feature that spans both repos, follow this order:
 - When modifying the GraphQL schema, always run `pnpm generate` (not just `pnpm codegen`)
 - Use `ios_make(target="env_local")` to point iOS at the local backend for schema introspection
 - The iOS app reads its endpoint from `Modules/AmpConfiguration/Sources/amplifyconfiguration.json`
-- `make backend` in iOS introspects whatever endpoint is configured and regenerates Swift types"""
+- `make backend` in iOS introspects whatever endpoint is configured and regenerates Swift types
+
+#### Dashboard Phase Reporting
+
+You MUST call `update_dashboard` at each phase transition to keep the kanban dashboard in sync:
+
+1. **Research phase** → After gathering context from the codebases:
+   `update_dashboard(phase="research", title="<task title>", summary="<key findings>")`
+
+2. **Plan phase** → After drafting the implementation plan:
+   `update_dashboard(phase="plan", plan="<full plan markdown>", summary="<brief overview>")`
+   **CRITICAL**: After reporting the plan phase, you MUST STOP and wait for user approval.
+   Do NOT proceed to the build phase until the user sends a message approving the plan.
+   The user will approve, request changes, or reject via the dashboard chat interface.
+
+3. **Build phase** → When starting implementation:
+   `update_dashboard(phase="build", summary="<what you're implementing>")`
+
+4. **Test phase** → When running tests, typechecks, builds:
+   `update_dashboard(phase="test", test_results="<output>", screenshots=["<paths>"])`
+
+5. **Iterate phase** → When fixing failures and going back to build+test:
+   `update_dashboard(phase="iterate", iteration_count=N, summary="<what failed, what's being fixed>")`
+
+6. **PR phase** → After creating pull requests:
+   `update_dashboard(phase="pr", pr_urls=["<urls>"], screenshots=["<paths>"], summary="<execution summary>")`
+
+7. **Review phase** → When addressing PR review comments:
+   `update_dashboard(phase="review", summary="<what comments are being addressed>")`"""
 
 
 SYSTEM_PROMPT = (
