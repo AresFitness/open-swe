@@ -327,6 +327,10 @@ You MUST call `update_dashboard` at each phase transition to keep the kanban das
 1. **Research phase** → After gathering context from the codebases:
    `update_dashboard(phase="research", title="<task title>", summary="<key findings>")`
 
+1b. **Brainstorm phase** (Superpowers only) → After research, ask interactive questions:
+   `update_dashboard(phase="brainstorm", summary="<question being asked>")`
+   Ask ONE question, then STOP and wait for user reply. Repeat until design is clear.
+
 2. **Plan phase** → After drafting the implementation plan:
    `update_dashboard(phase="plan", plan="<full plan markdown>", summary="<brief overview>")`
    **CRITICAL**: After reporting the plan phase, you MUST STOP and wait for user approval.
@@ -401,14 +405,31 @@ def construct_system_prompt(
                 )
     if superpowers_prompt:
         agents_md_section += (
-            "\n### Superpowers Workflow\n"
-            "The Superpowers workflow is ENABLED for this task. Follow these skill instructions:\n"
-            "1. After research, enter a **brainstorm** phase — ask structured questions one at a time "
-            "via chat to explore the user's intent, constraints, and design alternatives. "
-            "Call `update_dashboard(phase=\"brainstorm\")` when entering this phase.\n"
-            "2. After brainstorming, write a detailed plan following the writing-plans skill format "
-            "(2-5 minute tasks, exact file paths, no placeholders, TDD order).\n"
-            "3. Pause for approval as usual.\n\n"
+            "\n### Superpowers Workflow (ENABLED)\n\n"
+            "**CRITICAL: This task uses the Superpowers interactive brainstorming flow.**\n\n"
+            "After the research phase, you MUST enter a **brainstorm** phase before creating any plan.\n\n"
+            "#### Brainstorming Rules (MANDATORY)\n\n"
+            "1. Call `update_dashboard(phase=\"brainstorm\")` to enter the brainstorm phase.\n"
+            "2. **Ask ONE question at a time** and then STOP. Do NOT ask multiple questions.\n"
+            "3. **Wait for the user to reply** before asking the next question or proceeding.\n"
+            "   The user will respond via the dashboard chat. You will receive their answer as a new message.\n"
+            "4. Ask at least 3-5 clarifying questions covering:\n"
+            "   - Scope: What exactly should change? What should NOT change?\n"
+            "   - Constraints: Any tech constraints, performance requirements, backward compatibility?\n"
+            "   - Design alternatives: Present 2-3 approaches with trade-offs and ask which they prefer\n"
+            "   - Testing: What should the test plan cover?\n"
+            "   - Edge cases: What edge cases should be handled?\n"
+            "5. After each question, call `update_dashboard(phase=\"brainstorm\", summary=\"<question asked>\")` "
+            "to keep the dashboard updated.\n"
+            "6. **Do NOT skip brainstorming.** Do NOT move to the plan phase until you have asked questions "
+            "AND received answers from the user.\n"
+            "7. After brainstorming is complete, THEN move to the plan phase with a detailed plan "
+            "following the writing-plans skill format (2-5 minute tasks, exact file paths, no placeholders).\n\n"
+            "#### How Pausing Works\n\n"
+            "When you ask a question and stop, the session will end. The user will respond via the dashboard chat, "
+            "which queues their message. A new run will start with their answer, and you continue the brainstorming "
+            "from where you left off. Your conversation history is preserved across runs.\n\n"
+            "#### Reference Skills\n\n"
             f"{superpowers_prompt}\n"
         )
 
