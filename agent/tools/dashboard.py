@@ -3,12 +3,11 @@
 import logging
 from typing import Any
 
-from langgraph.config import get_config
-from langgraph.store.base import BaseStore
+from langgraph.config import get_config, get_store
 
 logger = logging.getLogger(__name__)
 
-VALID_PHASES = ("research", "plan", "build", "test", "iterate", "pr", "review")
+VALID_PHASES = ("research", "brainstorm", "plan", "build", "test", "iterate", "pr", "review")
 
 
 def update_dashboard(
@@ -67,14 +66,7 @@ def update_dashboard(
         if not thread_id:
             return {"success": False, "error": "Missing thread_id"}
 
-        store: BaseStore | None = config.get("store")
-        if store is None:
-            # Try to get store from langgraph context
-            try:
-                from langgraph.store.base import get_store
-                store = get_store()
-            except Exception:
-                pass
+        store = get_store()
 
         if store is None:
             logger.warning("No store available, dashboard update skipped")

@@ -377,6 +377,7 @@ def construct_system_prompt(
     linear_issue_number: str = "",
     agents_md: str = "",
     repo_conventions: dict[str, str] | None = None,
+    superpowers_prompt: str = "",
 ) -> str:
     agents_md_section = ""
     if agents_md:
@@ -398,6 +399,19 @@ def construct_system_prompt(
                     f"{conventions}\n"
                     f"</conventions_{repo_name}>\n"
                 )
+    if superpowers_prompt:
+        agents_md_section += (
+            "\n### Superpowers Workflow\n"
+            "The Superpowers workflow is ENABLED for this task. Follow these skill instructions:\n"
+            "1. After research, enter a **brainstorm** phase — ask structured questions one at a time "
+            "via chat to explore the user's intent, constraints, and design alternatives. "
+            "Call `update_dashboard(phase=\"brainstorm\")` when entering this phase.\n"
+            "2. After brainstorming, write a detailed plan following the writing-plans skill format "
+            "(2-5 minute tasks, exact file paths, no placeholders, TDD order).\n"
+            "3. Pause for approval as usual.\n\n"
+            f"{superpowers_prompt}\n"
+        )
+
     return SYSTEM_PROMPT.format(
         working_dir=working_dir,
         linear_project_id=linear_project_id or "<PROJECT_ID>",

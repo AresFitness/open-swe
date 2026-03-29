@@ -136,9 +136,17 @@ def _git_with_credentials(
     repo_dir: str,
     command: str,
 ) -> ExecuteResponse:
-    """Run a git command using the temporary credential file."""
+    """Run a git command using the temporary credential file.
+
+    Uses two -c flags: the first clears any system credential helpers
+    (e.g., macOS Keychain), the second sets our token-based one.
+    """
     cred_helper = shlex.quote(f"store --file={_CRED_FILE_PATH}")
-    return _run_git(sandbox_backend, repo_dir, f"git -c credential.helper={cred_helper} {command}")
+    return _run_git(
+        sandbox_backend,
+        repo_dir,
+        f"git -c credential.helper= -c credential.helper={cred_helper} {command}",
+    )
 
 
 def git_push(

@@ -68,10 +68,10 @@ export function useDashboardMeta() {
 export function useMetaMap(): Map<string, DashboardMeta> {
   const { data } = useDashboardMeta();
   const map = new Map<string, DashboardMeta>();
-  if (data) {
+  if (Array.isArray(data)) {
     for (const item of data) {
       // namespace is ["dashboard", threadId]
-      const threadId = item.namespace[1];
+      const threadId = item.namespace?.[1];
       if (threadId && item.key === "task") {
         map.set(threadId, item.value);
       }

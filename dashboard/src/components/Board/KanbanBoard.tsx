@@ -25,6 +25,7 @@ export function KanbanBoard({
   const columnData = useMemo(() => {
     const columns: Record<Phase, ThreadCardData[]> = {
       research: [],
+      brainstorm: [],
       plan: [],
       build: [],
       test: [],

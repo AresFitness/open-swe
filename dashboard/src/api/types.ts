@@ -1,6 +1,7 @@
 // ── Phase definitions ──────────────────────────────────────────────
 export const PHASES = [
   "research",
+  "brainstorm",
   "plan",
   "build",
   "test",
@@ -13,6 +14,7 @@ export type Phase = (typeof PHASES)[number];
 
 export const PHASE_LABELS: Record<Phase, string> = {
   research: "Research",
+  brainstorm: "Brainstorm",
   plan: "Plan",
   build: "Build",
   test: "Test",
@@ -23,6 +25,7 @@ export const PHASE_LABELS: Record<Phase, string> = {
 
 export const PHASE_DESCRIPTIONS: Record<Phase, string> = {
   research: "Context gathering",
+  brainstorm: "Design exploration",
   plan: "Implementation plan",
   build: "Code implementation",
   test: "Tests, typecheck, builds",

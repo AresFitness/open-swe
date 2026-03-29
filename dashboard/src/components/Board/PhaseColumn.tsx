@@ -12,6 +12,7 @@ interface PhaseColumnProps {
 
 const PHASE_COLORS: Record<Phase, string> = {
   research: "bg-purple-500",
+  brainstorm: "bg-pink-500",
   plan: "bg-amber-500",
   build: "bg-blue-500",
   test: "bg-green-500",

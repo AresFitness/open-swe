@@ -4,6 +4,7 @@
 # Suppress deprecation warnings from langchain_core (e.g., Pydantic V1 on Python 3.14+)
 # ruff: noqa: E402
 import logging
+import os
 import shlex
 import warnings
 
@@ -437,6 +438,17 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             if extra_claude_md:
                 repo_conventions[extra_name] = extra_claude_md
 
+    # Read Superpowers skill files if enabled
+    superpowers_prompt = ""
+    if config["configurable"].get("superpowers", False):
+        superpowers_dir = os.path.join(os.path.dirname(__file__), "..", "superpowers", "skills")
+        for skill_name in ["brainstorming", "writing-plans"]:
+            skill_path = os.path.join(superpowers_dir, skill_name, "SKILL.md")
+            if os.path.isfile(skill_path):
+                with open(skill_path) as f:
+                    superpowers_prompt += f"\n### Superpowers Skill: {skill_name}\n{f.read()}\n"
+        logger.info("Superpowers enabled with %d chars of skill prompts", len(superpowers_prompt))
+
     # Use the sandbox work dir as working_dir so the agent sees all repos
     work_dir = await aresolve_sandbox_work_dir(sandbox_backend)
 
@@ -449,6 +461,7 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             linear_issue_number=linear_issue_number,
             agents_md=agents_md,
             repo_conventions=repo_conventions,
+            superpowers_prompt=superpowers_prompt,
         ),
         tools=[
             http_request,

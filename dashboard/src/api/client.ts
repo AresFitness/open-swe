@@ -71,13 +71,14 @@ export async function createRun(
 // ── Store ──────────────────────────────────────────────────────────
 
 export async function searchStoreItems(): Promise<StoreItem[]> {
-  return fetchJSON<StoreItem[]>("/store/items/search", {
+  const res = await fetchJSON<{ items: StoreItem[] }>("/store/items/search", {
     method: "POST",
     body: JSON.stringify({
       namespace_prefix: ["dashboard"],
       limit: 100,
     }),
   });
+  return res.items ?? [];
 }
 
 export async function putStoreItem(

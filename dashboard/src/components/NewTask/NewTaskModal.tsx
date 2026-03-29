@@ -29,6 +29,7 @@ export function NewTaskModal({ onClose }: NewTaskModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [repo, setRepo] = useState<Repo>("RedefinedFitness");
+  const [useSuperpowers, setUseSuperpowers] = useState(false);
   const createTask = useCreateTask();
   const titleRef = useRef<HTMLInputElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -56,29 +57,20 @@ export function NewTaskModal({ onClose }: NewTaskModalProps) {
         ? `${title.trim()}\n\n${description.trim()}`
         : title.trim();
 
-      const repoConfig =
-        repo === "both"
-          ? {
-              configurable: {
-                repo: {
-                  owner: "AresFitness",
-                  name: "RedefinedFitness",
-                },
-                additional_repos: [
-                  { owner: "AresFitness", name: "amp-ios" },
-                ],
-                source: "dashboard",
-              },
-            }
-          : {
-              configurable: {
-                repo: {
-                  owner: "AresFitness",
-                  name: repo,
-                },
-                source: "dashboard",
-              },
-            };
+      const configurable: Record<string, unknown> = {
+        repo: {
+          owner: "AresFitness",
+          name: repo === "both" ? "RedefinedFitness" : repo,
+        },
+        source: "dashboard",
+        superpowers: useSuperpowers,
+      };
+      if (repo === "both") {
+        configurable.additional_repos = [
+          { owner: "AresFitness", name: "amp-ios" },
+        ];
+      }
+      const repoConfig = { configurable };
 
       await createTask.mutateAsync({
         message: prompt,
@@ -201,6 +193,35 @@ export function NewTaskModal({ onClose }: NewTaskModalProps) {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Superpowers toggle */}
+          <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <div className="flex-1 mr-3">
+              <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                Use Superpowers
+              </p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                Interactive brainstorming &amp; structured planning before building
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={useSuperpowers}
+              onClick={() => setUseSuperpowers((v) => !v)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                useSuperpowers
+                  ? "bg-blue-600 dark:bg-blue-500"
+                  : "bg-gray-300 dark:bg-gray-600"
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform ${
+                  useSuperpowers ? "translate-x-4.5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
           </div>
 
           {/* Error */}
