@@ -1089,23 +1089,21 @@ async def slack_webhook_verify() -> dict[str, str]:
     return {"status": "ok", "message": "Slack webhook endpoint is active"}
 
 
-@app.on_event("startup")
-async def update_superpowers_submodule():
-    """Update the superpowers submodule to latest on server startup."""
-    import subprocess
+# Update superpowers submodule at import time (runs once on server start)
+try:
+    import subprocess as _sp
 
-    repo_root = os.path.join(os.path.dirname(__file__), "..")
-    result = subprocess.run(
+    _repo_root = os.path.join(os.path.dirname(__file__), "..")
+    _result = _sp.run(
         ["git", "submodule", "update", "--remote", "--merge", "superpowers"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        timeout=30,
+        cwd=_repo_root, capture_output=True, text=True, timeout=30,
     )
-    if result.returncode == 0:
+    if _result.returncode == 0:
         logger.info("Superpowers submodule updated successfully")
     else:
-        logger.warning("Superpowers submodule update failed: %s", result.stderr[:200])
+        logger.warning("Superpowers submodule update failed: %s", _result.stderr[:200])
+except Exception:
+    logger.warning("Superpowers submodule update skipped")
 
 
 @app.get("/health")
