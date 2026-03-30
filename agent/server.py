@@ -420,6 +420,24 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
                     exc_info=True,
                 )
 
+    # Run sandbox setup script (installs secrets, dependencies, generates Xcode project)
+    setup_script = os.path.join(os.path.dirname(__file__), "..", "scripts", "setup-sandbox.sh")
+    if os.path.isfile(setup_script):
+        work_dir_for_setup = await aresolve_sandbox_work_dir(sandbox_backend)
+        logger.info("Running sandbox setup script for %s", work_dir_for_setup)
+        setup_result = await asyncio.to_thread(
+            sandbox_backend.execute,
+            f"SANDBOX_DIR={shlex.quote(work_dir_for_setup)} bash {shlex.quote(os.path.abspath(setup_script))}",
+        )
+        if setup_result.exit_code == 0:
+            logger.info("Sandbox setup completed successfully")
+        else:
+            logger.warning(
+                "Sandbox setup failed (exit %s): %s",
+                setup_result.exit_code,
+                (setup_result.output or "")[-500:],
+            )
+
     linear_issue = config["configurable"].get("linear_issue", {})
     linear_project_id = linear_issue.get("linear_project_id", "")
     linear_issue_number = linear_issue.get("linear_issue_number", "")
