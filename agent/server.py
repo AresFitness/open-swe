@@ -35,28 +35,20 @@ from .middleware import (
 )
 from .prompt import construct_system_prompt
 from .tools import (
-    backend_generate,
-    backend_lint,
-    backend_local,
-    backend_test,
-    backend_typecheck,
     commit_and_open_pr,
     cross_repo_commit_and_open_prs,
     update_dashboard,
     fetch_url,
     github_comment,
     http_request,
-    ios_make,
     linear_comment,
-    simulator_control,
     slack_thread_reply,
     visual_click,
     visual_screenshot,
     visual_swipe,
     visual_type,
-    xcode_build,
-    xcode_test,
 )
+from .tools.repo_tool_loader import load_repo_tools
 from .utils.auth import resolve_github_token
 from .utils.model import make_model
 from .utils.sandbox import create_sandbox
@@ -482,27 +474,21 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             superpowers_prompt=superpowers_prompt,
         ),
         tools=[
+            # Core SWE agent tools (repo-agnostic)
             http_request,
             fetch_url,
             commit_and_open_pr,
             linear_comment,
             slack_thread_reply,
             github_comment,
-            backend_test,
-            backend_typecheck,
-            backend_lint,
-            backend_generate,
-            backend_local,
-            ios_make,
-            xcode_build,
-            xcode_test,
-            simulator_control,
             cross_repo_commit_and_open_prs,
             visual_screenshot,
             visual_click,
             visual_type,
             visual_swipe,
             update_dashboard,
+            # Repo-specific tools (loaded from .swe/tools.py in each repo)
+            *load_repo_tools(work_dir),
         ],
         backend=sandbox_backend,
         middleware=[
