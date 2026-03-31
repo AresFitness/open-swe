@@ -36,17 +36,31 @@ from .middleware import (
 from .prompt import construct_system_prompt
 from .tools import (
     commit_and_open_pr,
+    create_pr_review,
     cross_repo_commit_and_open_prs,
-    update_dashboard,
+    dismiss_pr_review,
     fetch_url,
+    get_pr_review,
     github_comment,
     http_request,
     linear_comment,
+    linear_create_issue,
+    linear_delete_issue,
+    linear_get_issue,
+    linear_get_issue_comments,
+    linear_list_teams,
+    linear_update_issue,
+    list_pr_review_comments,
+    list_pr_reviews,
     slack_thread_reply,
+    submit_pr_review,
+    update_dashboard,
+    update_pr_review,
     visual_click,
     visual_screenshot,
     visual_swipe,
     visual_type,
+    web_search,
 )
 from .tools.repo_tool_loader import load_repo_tools
 from .utils.auth import resolve_github_token
@@ -240,6 +254,7 @@ def graph_loaded_for_execution(config: RunnableConfig) -> bool:
     )
 
 
+DEFAULT_LLM_MODEL_ID = "anthropic:claude-opus-4-6"
 DEFAULT_RECURSION_LIMIT = 3_000
 
 
@@ -464,7 +479,11 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
 
     logger.info("Returning agent with sandbox for thread %s", thread_id)
     return create_deep_agent(
-        model=make_model("anthropic:claude-opus-4-6", temperature=0, max_tokens=20_000),
+        model=make_model(
+            os.environ.get("LLM_MODEL_ID", DEFAULT_LLM_MODEL_ID),
+            temperature=0,
+            max_tokens=20_000,
+        ),
         system_prompt=construct_system_prompt(
             work_dir,
             linear_project_id=linear_project_id,
@@ -477,10 +496,24 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             # Core SWE agent tools (repo-agnostic)
             http_request,
             fetch_url,
+            web_search,
             commit_and_open_pr,
             linear_comment,
+            linear_create_issue,
+            linear_delete_issue,
+            linear_get_issue,
+            linear_get_issue_comments,
+            linear_list_teams,
+            linear_update_issue,
             slack_thread_reply,
             github_comment,
+            list_pr_reviews,
+            get_pr_review,
+            create_pr_review,
+            update_pr_review,
+            dismiss_pr_review,
+            submit_pr_review,
+            list_pr_review_comments,
             cross_repo_commit_and_open_prs,
             visual_screenshot,
             visual_click,
