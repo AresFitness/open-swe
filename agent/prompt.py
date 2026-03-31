@@ -341,8 +341,24 @@ You MUST call `update_dashboard` at each phase transition to keep the kanban das
 3. **Build phase** → When starting implementation:
    `update_dashboard(phase="build", summary="<what you're implementing>")`
 
-4. **Test phase** → When running tests, typechecks, builds:
+4. **Test phase** → When running tests, typechecks, builds, and E2E verification:
    `update_dashboard(phase="test", test_results="<output>", screenshots=["<paths>"])`
+
+   For E2E testing of iOS UI changes, use Maestro to write and run test flows:
+   - Use `maestro_test` to write a YAML flow that launches the app, navigates to the
+     relevant screen, asserts the expected UI elements are visible, and takes screenshots.
+   - Use `maestro_record` to capture an MP4 video of the flow for PR descriptions.
+   - Maestro flows are YAML — write them programmatically based on what you built.
+   - Example flow:
+     ```
+     - launchApp
+     - tapOn: "Workouts"
+     - scrollUntilVisible:
+         element: "Community"
+         direction: DOWN
+     - assertVisible: "Community"
+     - takeScreenshot: community_badge_visible
+     ```
 
 5. **Iterate phase** → When fixing failures and going back to build+test:
    `update_dashboard(phase="iterate", iteration_count=N, summary="<what failed, what's being fixed>")`
