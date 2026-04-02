@@ -12,6 +12,11 @@ from ..utils.sandbox_state import get_sandbox_backend_sync
 
 logger = logging.getLogger(__name__)
 
+# App config from environment
+DEFAULT_APP_ID = os.environ.get("AMP_APP_BUNDLE_ID", "io.ampinteractive.amp.dev")
+DEV_USERNAME = os.environ.get("AMP_DEV_USERNAME", "")
+DEV_PASSWORD = os.environ.get("AMP_DEV_PASSWORD", "")
+
 
 def _get_sandbox_and_work_dir() -> tuple[Any, str]:
     """Get the sandbox backend and work directory."""
@@ -29,7 +34,7 @@ def _get_sandbox_and_work_dir() -> tuple[Any, str]:
 def maestro_test(
     flow_yaml: str,
     flow_name: str = "test_flow",
-    app_id: str = "com.amp.fitness.dev",
+    app_id: str = "",
     env_vars: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run a Maestro E2E test flow on the iOS Simulator.
@@ -38,14 +43,18 @@ def maestro_test(
     iOS Simulator. The flow can launch the app, tap elements, input text,
     scroll, assert visibility, and take screenshots.
 
+    Login credentials are automatically available as env vars in the flow:
+        ${DEV_USERNAME} and ${DEV_PASSWORD}
+
     Common YAML commands:
-        - launchApp                          # Launch the app (uses appId from config)
+        - launchApp                          # Launch the app
         - launchApp:
             clearState: true                 # Launch with fresh state
         - tapOn: "Button Text"               # Tap element by visible text
         - tapOn:
             id: "accessibilityIdentifier"    # Tap by accessibility ID
         - inputText: "Hello"                 # Type text into focused field
+        - inputText: "${DEV_USERNAME}"        # Use env var for login
         - assertVisible: "Expected Text"     # Assert text is on screen
         - assertNotVisible: "Error"          # Assert text is NOT on screen
         - scrollUntilVisible:
@@ -59,15 +68,42 @@ def maestro_test(
         - back                               # Navigate back
         - hideKeyboard                       # Dismiss keyboard
         - waitForAnimationToEnd              # Wait for animations
+        - repeat:
+            times: 6
+            commands:
+              - waitForAnimationToEnd:
+                  timeout: 5000              # Wait ~30s total (splash screen)
+
+    Login flow example (the app needs ~30s to load past splash on first launch):
+        - launchApp:
+            clearState: true
+        - repeat:
+            times: 6
+            commands:
+              - waitForAnimationToEnd:
+                  timeout: 5000
+        - takeScreenshot: onboarding
+        - tapOn: "Get started"
+        - tapOn: "Log in"
+        - tapOn: "Email"
+        - inputText: "${DEV_USERNAME}"
+        - tapOn: "Password"
+        - inputText: "${DEV_PASSWORD}"
+        - tapOn: "Log in"
+        - repeat:
+            times: 6
+            commands:
+              - waitForAnimationToEnd:
+                  timeout: 5000
+        - takeScreenshot: logged_in
 
     Args:
         flow_yaml: The YAML flow content. Do NOT include the appId config header —
             it is added automatically. Start directly with the commands list.
-            Example:
-                "- launchApp\\n- tapOn: 'Log In'\\n- assertVisible: 'Welcome'"
         flow_name: Name for this flow (used for file naming). Default "test_flow".
-        app_id: iOS app bundle ID. Default "com.amp.fitness.dev".
-        env_vars: Optional environment variables to pass to the flow.
+        app_id: iOS app bundle ID. Defaults to AMP_APP_BUNDLE_ID env var.
+        env_vars: Optional extra environment variables to pass to the flow.
+            DEV_USERNAME and DEV_PASSWORD are always included automatically.
 
     Returns:
         Dictionary with success status, output, screenshots taken, and flow file path.
@@ -80,29 +116,34 @@ def maestro_test(
         sandbox_backend.execute(f"mkdir -p {flows_dir}")
 
         # Build the complete flow YAML with appId header
-        full_yaml = f"appId: {app_id}\n---\n{flow_yaml}"
+        resolved_app_id = app_id or DEFAULT_APP_ID
+        full_yaml = f"appId: {resolved_app_id}\n---\n{flow_yaml}"
 
         # Write the flow file
         flow_path = f"{flows_dir}/{flow_name}.yaml"
         sandbox_backend.write(flow_path, full_yaml)
 
-        # Build the command
+        # Build the command with test output dir
         output_dir = f"{work_dir}/.maestro-output/{flow_name}"
         sandbox_backend.execute(f"mkdir -p {output_dir}")
 
-        cmd = f"maestro test --format junit --output {shlex.quote(output_dir)} {shlex.quote(flow_path)}"
+        cmd = f"maestro test --test-output-dir {shlex.quote(output_dir)} {shlex.quote(flow_path)}"
 
+        # Always inject login credentials
+        all_env = {"DEV_USERNAME": DEV_USERNAME, "DEV_PASSWORD": DEV_PASSWORD}
         if env_vars:
-            for k, v in env_vars.items():
+            all_env.update(env_vars)
+        for k, v in all_env.items():
+            if v:
                 cmd += f" -e {shlex.quote(k)}={shlex.quote(v)}"
 
         cmd += " 2>&1"
 
         result = sandbox_backend.execute(cmd)
 
-        # Collect screenshots
+        # Collect screenshots (Maestro saves to screenshots/ subdir inside output)
         screenshots = []
-        ls_result = sandbox_backend.execute(f"find {output_dir} -name '*.png' 2>/dev/null")
+        ls_result = sandbox_backend.execute(f"find {output_dir} -name '*.png' -type f 2>/dev/null")
         if ls_result.exit_code == 0 and ls_result.output:
             screenshots = [p.strip() for p in ls_result.output.strip().split("\n") if p.strip()]
 
@@ -123,7 +164,7 @@ def maestro_test(
 def maestro_record(
     flow_yaml: str,
     flow_name: str = "test_flow",
-    app_id: str = "com.amp.fitness.dev",
+    app_id: str = "",
 ) -> dict[str, Any]:
     """Run a Maestro flow and record the screen as MP4 video.
 
@@ -149,7 +190,8 @@ def maestro_record(
         flows_dir = f"{work_dir}/.maestro-flows"
         sandbox_backend.execute(f"mkdir -p {flows_dir}")
 
-        full_yaml = f"appId: {app_id}\n---\n{flow_yaml}"
+        resolved_app_id = app_id or DEFAULT_APP_ID
+        full_yaml = f"appId: {resolved_app_id}\n---\n{flow_yaml}"
         flow_path = f"{flows_dir}/{flow_name}.yaml"
         sandbox_backend.write(flow_path, full_yaml)
 
@@ -157,7 +199,12 @@ def maestro_record(
         sandbox_backend.execute(f"mkdir -p {output_dir}")
 
         video_path = f"{output_dir}/{flow_name}.mp4"
-        cmd = f"maestro record --local --output {shlex.quote(video_path)} {shlex.quote(flow_path)} 2>&1"
+        env_cmd = ""
+        if DEV_USERNAME:
+            env_cmd += f" -e DEV_USERNAME={shlex.quote(DEV_USERNAME)}"
+        if DEV_PASSWORD:
+            env_cmd += f" -e DEV_PASSWORD={shlex.quote(DEV_PASSWORD)}"
+        cmd = f"maestro record --local{env_cmd} --output {shlex.quote(video_path)} {shlex.quote(flow_path)} 2>&1"
 
         result = sandbox_backend.execute(cmd)
 
@@ -175,7 +222,7 @@ def maestro_record(
 
 
 def maestro_screenshot(
-    app_id: str = "com.amp.fitness.dev",
+    app_id: str = "",
     name: str = "screen",
 ) -> dict[str, Any]:
     """Take a screenshot of the current simulator screen using Maestro.
@@ -196,7 +243,8 @@ def maestro_screenshot(
         sandbox_backend.execute(f"mkdir -p {output_dir}")
 
         # Use a minimal flow that just takes a screenshot
-        flow_yaml = f"appId: {app_id}\n---\n- takeScreenshot: {name}"
+        resolved_app_id = app_id or DEFAULT_APP_ID
+        flow_yaml = f"appId: {resolved_app_id}\n---\n- takeScreenshot: {name}"
         flow_path = f"{work_dir}/.maestro-flows/_screenshot.yaml"
         sandbox_backend.execute(f"mkdir -p {work_dir}/.maestro-flows")
         sandbox_backend.write(flow_path, flow_yaml)

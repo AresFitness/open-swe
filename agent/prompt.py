@@ -345,13 +345,39 @@ You MUST call `update_dashboard` at each phase transition to keep the kanban das
    `update_dashboard(phase="test", test_results="<output>", screenshots=["<paths>"])`
 
    For E2E testing of iOS UI changes, use Maestro to write and run test flows:
-   - Use `maestro_test` to write a YAML flow that launches the app, navigates to the
-     relevant screen, asserts the expected UI elements are visible, and takes screenshots.
-   - Use `maestro_record` to capture an MP4 video of the flow for PR descriptions.
-   - Maestro flows are YAML — write them programmatically based on what you built.
-   - Example flow:
+   - Use `maestro_test` to write a YAML flow that launches the app, logs in,
+     navigates to the relevant screen, asserts UI elements, and takes screenshots.
+   - Login credentials are injected as ${{DEV_USERNAME}} and ${{DEV_PASSWORD}} env vars.
+   - The app needs ~30s after launch (with clearState) to get past the splash screen.
+   - Screenshots from Maestro should be passed to `update_dashboard(screenshots=[...])`.
+   - Use `maestro_record` to capture MP4 video for PR descriptions.
+
+   Standard login flow (include at the start of every E2E test):
      ```
-     - launchApp
+     - launchApp:
+         clearState: true
+     - repeat:
+         times: 6
+         commands:
+           - waitForAnimationToEnd:
+               timeout: 5000
+     - tapOn: "Get started"
+     - tapOn: "Log in"
+     - tapOn: "Email"
+     - inputText: "${{DEV_USERNAME}}"
+     - tapOn: "Password"
+     - inputText: "${{DEV_PASSWORD}}"
+     - tapOn: "Log in"
+     - repeat:
+         times: 6
+         commands:
+           - waitForAnimationToEnd:
+               timeout: 5000
+     - takeScreenshot: logged_in_home
+     ```
+
+   After login, navigate to the screen you need to test and assert/screenshot:
+     ```
      - tapOn: "Workouts"
      - scrollUntilVisible:
          element: "Community"
