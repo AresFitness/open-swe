@@ -1,13 +1,60 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { DashboardMeta } from "../../api/types";
 
 interface ScreenshotGalleryProps {
   meta: DashboardMeta | null;
 }
 
+function useScreenshotUrl(path: string): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const stripped = path.replace(/^\/+/, "");
+    fetch(`/files/${stripped}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.data_url) setUrl(data.data_url);
+      })
+      .catch(() => setUrl(null));
+  }, [path]);
+  return url;
+}
+
+function ScreenshotImage({
+  path,
+  alt,
+  className,
+  onClick,
+}: {
+  path: string;
+  alt: string;
+  className?: string;
+  onClick?: () => void;
+}) {
+  const url = useScreenshotUrl(path);
+  if (!url)
+    return (
+      <div
+        className={`flex items-center justify-center ${className ?? ""}`}
+        onClick={onClick}
+      >
+        <span className="text-xs text-gray-400 dark:text-gray-500">
+          Loading...
+        </span>
+      </div>
+    );
+  return (
+    <img
+      src={url}
+      alt={alt}
+      className={className}
+      onClick={onClick}
+      loading="lazy"
+    />
+  );
+}
+
 export function ScreenshotGallery({ meta }: ScreenshotGalleryProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-
   const screenshots = meta?.screenshots ?? [];
 
   if (screenshots.length === 0) {
@@ -51,23 +98,10 @@ export function ScreenshotGallery({ meta }: ScreenshotGalleryProps) {
                 onClick={() => setSelectedImage(path)}
                 className="group relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-900 hover:border-blue-400 dark:hover:border-blue-500 transition-colors aspect-video"
               >
-                <img
-                  src={`/files/${path}`}
+                <ScreenshotImage
+                  path={path}
                   alt={filename}
                   className="w-full h-full object-cover"
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = "none";
-                    const parent = target.parentElement;
-                    if (parent && !parent.querySelector(".error-fallback")) {
-                      const fallback = document.createElement("div");
-                      fallback.className =
-                        "error-fallback flex items-center justify-center h-full text-xs text-gray-400 dark:text-gray-500";
-                      fallback.textContent = "Failed to load";
-                      parent.appendChild(fallback);
-                    }
-                  }}
                 />
                 <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <p className="text-[10px] text-white truncate">
@@ -108,8 +142,8 @@ export function ScreenshotGallery({ meta }: ScreenshotGalleryProps) {
                 />
               </svg>
             </button>
-            <img
-              src={`/files/${selectedImage}`}
+            <ScreenshotImage
+              path={selectedImage}
               alt="Screenshot"
               className="max-w-full max-h-[85vh] rounded-lg object-contain"
             />

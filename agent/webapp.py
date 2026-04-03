@@ -1117,20 +1117,70 @@ async def health_check() -> dict[str, str]:
 SANDBOX_ROOT = os.environ.get("LOCAL_SANDBOX_ROOT_DIR", "/tmp/amp-swe-sandbox")
 
 
-@app.get("/files/{path:path}")
-async def serve_sandbox_file(path: str):
-    """Serve files from the sandbox directory (screenshots, build artifacts, etc.)."""
-    from fastapi.responses import FileResponse
+MAESTRO_TESTS_ROOT = os.path.expanduser("~/.maestro/tests")
 
-    full_path = os.path.join(SANDBOX_ROOT, path)
-    # Security: prevent path traversal
-    real_path = os.path.realpath(full_path)
-    real_root = os.path.realpath(SANDBOX_ROOT)
-    if not real_path.startswith(real_root):
-        raise HTTPException(status_code=403, detail="Access denied")
-    if not os.path.isfile(real_path):
-        raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(real_path)
+
+def _resolve_file_sync(path: str) -> tuple[str | None, str]:
+    """Resolve a file path to an absolute path. Runs in sync context to avoid async blocking."""
+    import mimetypes
+
+    real_sandbox = os.path.realpath(SANDBOX_ROOT)
+    real_maestro = os.path.realpath(MAESTRO_TESTS_ROOT)
+    allowed_roots = [real_sandbox, real_maestro]
+
+    # 1. Try as relative to sandbox root
+    candidate = os.path.realpath(os.path.join(SANDBOX_ROOT, path))
+    if any(candidate.startswith(r) for r in allowed_roots) and os.path.isfile(candidate):
+        ct = mimetypes.guess_type(candidate)[0] or "application/octet-stream"
+        return candidate, ct
+
+    # 2. Try as absolute path
+    if path.startswith("private/") or path.startswith("Users/"):
+        abs_path = f"/{path}"
+        real_abs = os.path.realpath(abs_path)
+        if any(real_abs.startswith(r) for r in allowed_roots) and os.path.isfile(real_abs):
+            ct = mimetypes.guess_type(real_abs)[0] or "application/octet-stream"
+            return real_abs, ct
+
+    # 3. Try Maestro tests dir
+    maestro_candidate = os.path.realpath(os.path.join(MAESTRO_TESTS_ROOT, path))
+    if maestro_candidate.startswith(real_maestro) and os.path.isfile(maestro_candidate):
+        ct = mimetypes.guess_type(maestro_candidate)[0] or "application/octet-stream"
+        return maestro_candidate, ct
+
+    return None, ""
+
+
+@app.get("/files/{path:path}")
+async def serve_sandbox_file(path: str) -> dict:
+    """Serve files from sandbox, Maestro output, or absolute paths."""
+    import asyncio
+    import base64
+
+    try:
+        resolved, content_type = await asyncio.to_thread(_resolve_file_sync, path)
+
+        if not resolved:
+            raise HTTPException(status_code=404, detail=f"File not found: {path}")
+
+        def _read():
+            with open(resolved, "rb") as f:
+                return f.read()
+
+        data = await asyncio.to_thread(_read)
+
+        b64 = base64.b64encode(data).decode("ascii")
+        return {
+            "data_url": f"data:{content_type};base64,{b64}",
+            "content_type": content_type,
+            "path": resolved,
+            "size": len(data),
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("serve_sandbox_file error for path=%s", path)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # --- Dashboard static files (production) ---
