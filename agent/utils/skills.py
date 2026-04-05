@@ -48,14 +48,13 @@ async def read_skills_in_sandbox(
 
     for skill_path in skill_paths:
         skill_path = skill_path.strip()
-        # Extract skill name from path: .claude/skills/<name>/SKILL.md
-        parts = skill_path.split("/")
-        try:
-            skills_idx = parts.index("skills")
-            skill_name = parts[skills_idx + 1]
-        except (ValueError, IndexError):
+        # Extract skill name from path: <repo_dir>/.claude/skills/<name>/SKILL.md
+        skills_base = f"{repo_dir}/.claude/skills/"
+        if not skill_path.startswith(skills_base):
             logger.warning("Could not extract skill name from path: %s", skill_path)
             continue
+        remainder = skill_path[len(skills_base):]  # "<name>/SKILL.md"
+        skill_name = remainder.split("/")[0]
 
         # Read SKILL.md content
         safe_skill_path = shlex.quote(skill_path)
@@ -73,7 +72,7 @@ async def read_skills_in_sandbox(
             continue
 
         # Discover reference files
-        skill_dir = "/".join(parts[: skills_idx + 2])
+        skill_dir = f"{repo_dir}/.claude/skills/{skill_name}"
         refs_dir = shlex.quote(f"{skill_dir}/references")
         refs_find_cmd = (
             f"find {refs_dir} -maxdepth 1 -type f -name '*.md' 2>/dev/null"
@@ -108,5 +107,9 @@ async def read_skills_in_sandbox(
                     references[ref_name] = ref_content
 
         skills[skill_name] = {"content": content, "references": references}
+        logger.info(
+            "Loaded skill '%s' from %s (%d references)",
+            skill_name, repo_dir, len(references),
+        )
 
     return skills
