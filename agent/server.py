@@ -52,9 +52,6 @@ from .tools import (
     linear_update_issue,
     list_pr_review_comments,
     list_pr_reviews,
-    maestro_record,
-    maestro_screenshot,
-    maestro_test,
     slack_thread_reply,
     submit_pr_review,
     update_dashboard,
@@ -78,6 +75,7 @@ SANDBOX_POLL_INTERVAL = 1.0
 
 from .utils.agents_md import read_agents_md_in_sandbox
 from .utils.claude_md import read_claude_md_in_sandbox
+from .utils.skills import read_skills_in_sandbox
 from .utils.github import (
     _CRED_FILE_PATH,
     cleanup_git_credentials,
@@ -466,6 +464,19 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             if extra_claude_md:
                 repo_conventions[extra_name] = extra_claude_md
 
+    # Read skills from all repos
+    repo_skills: dict[str, dict] = {}
+    primary_skills = await read_skills_in_sandbox(sandbox_backend, repo_dir)
+    if primary_skills and repo_name:
+        repo_skills[repo_name] = primary_skills
+    for extra_repo in additional_repos:
+        extra_name = extra_repo.get("name")
+        if extra_name and extra_name != repo_name:
+            extra_dir = await aresolve_repo_dir(sandbox_backend, extra_name)
+            extra_skills = await read_skills_in_sandbox(sandbox_backend, extra_dir)
+            if extra_skills:
+                repo_skills[extra_name] = extra_skills
+
     # Read Superpowers skill files if enabled
     superpowers_prompt = ""
     if config["configurable"].get("superpowers", False):
@@ -493,6 +504,7 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             linear_issue_number=linear_issue_number,
             agents_md=agents_md,
             repo_conventions=repo_conventions,
+            repo_skills=repo_skills,
             superpowers_prompt=superpowers_prompt,
         ),
         tools=[
@@ -522,9 +534,6 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             visual_click,
             visual_type,
             visual_swipe,
-            maestro_test,
-            maestro_record,
-            maestro_screenshot,
             update_dashboard,
             # Repo-specific tools (loaded from .swe/tools.py in each repo)
             *load_repo_tools(work_dir),

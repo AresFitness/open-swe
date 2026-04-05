@@ -14,7 +14,6 @@ from .github_review import (
 )
 from .http_request import http_request
 from .linear_comment import linear_comment
-from .maestro_tools import maestro_record, maestro_screenshot, maestro_test
 from .linear_create_issue import linear_create_issue
 from .linear_delete_issue import linear_delete_issue
 from .linear_get_issue import linear_get_issue
@@ -35,9 +34,6 @@ __all__ = [
     "github_comment",
     "http_request",
     "linear_comment",
-    "maestro_record",
-    "maestro_screenshot",
-    "maestro_test",
     "linear_create_issue",
     "linear_delete_issue",
     "linear_get_issue",
