@@ -62,7 +62,6 @@ from .tools import (
     visual_type,
     web_search,
 )
-from .tools.repo_tool_loader import load_repo_tools
 from .utils.auth import resolve_github_token
 from .utils.model import make_model
 from .utils.sandbox import create_sandbox
@@ -75,7 +74,7 @@ SANDBOX_POLL_INTERVAL = 1.0
 
 from .utils.agents_md import read_agents_md_in_sandbox
 from .utils.claude_md import read_claude_md_in_sandbox
-from .utils.skills import read_skills_in_sandbox
+from .utils.skills import read_agent_knowledge_in_sandbox, read_skills_in_sandbox
 from .utils.github import (
     _CRED_FILE_PATH,
     cleanup_git_credentials,
@@ -515,6 +514,51 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             if extra_skills:
                 repo_skills[extra_name] = extra_skills
 
+    # Read agent knowledge (.claude/agents/*.md) from all repos
+    repo_agent_knowledge: dict[str, dict[str, str]] = {}
+    primary_knowledge = await read_agent_knowledge_in_sandbox(sandbox_backend, repo_dir)
+    if primary_knowledge and repo_name:
+        repo_agent_knowledge[repo_name] = primary_knowledge
+    for extra_repo in additional_repos:
+        extra_name = extra_repo.get("name")
+        if extra_name and extra_name != repo_name:
+            extra_dir = await aresolve_repo_dir(sandbox_backend, extra_name)
+            extra_knowledge = await read_agent_knowledge_in_sandbox(sandbox_backend, extra_dir)
+            if extra_knowledge:
+                repo_agent_knowledge[extra_name] = extra_knowledge
+
+    # Read AGENTS.md from additional repos (primary already read above)
+    repo_agents_md: dict[str, str] = {}
+    if agents_md and repo_name:
+        repo_agents_md[repo_name] = agents_md
+    for extra_repo in additional_repos:
+        extra_name = extra_repo.get("name")
+        if extra_name and extra_name != repo_name:
+            extra_dir = await aresolve_repo_dir(sandbox_backend, extra_name)
+            extra_agents_md = await read_agents_md_in_sandbox(sandbox_backend, extra_dir)
+            if extra_agents_md:
+                repo_agents_md[extra_name] = extra_agents_md
+
+    # Build per-repo data for sub-agent configuration
+    all_repo_names = set()
+    if repo_name:
+        all_repo_names.add(repo_name)
+    for extra_repo in additional_repos:
+        extra_name = extra_repo.get("name")
+        if extra_name:
+            all_repo_names.add(extra_name)
+
+    repo_data: dict[str, dict] = {}
+    for rname in sorted(all_repo_names):
+        repo_data[rname] = {
+            "conventions": repo_conventions.get(rname, ""),
+            "agents_md": repo_agents_md.get(rname, ""),
+            "skills": repo_skills.get(rname, {}),
+            "agent_knowledge": repo_agent_knowledge.get(rname, {}),
+        }
+
+    subagent_configs = build_subagent_configs(repo_data, work_dir)
+
     # Read Superpowers skill files if enabled
     superpowers_prompt = ""
     if config["configurable"].get("superpowers", False):
@@ -541,12 +585,11 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             linear_project_id=linear_project_id,
             linear_issue_number=linear_issue_number,
             agents_md=agents_md,
-            repo_conventions=repo_conventions,
-            repo_skills=repo_skills,
+            repo_conventions=None,
+            repo_skills=None,
             superpowers_prompt=superpowers_prompt,
         ),
         tools=[
-            # Core SWE agent tools (repo-agnostic)
             http_request,
             fetch_url,
             web_search,
@@ -573,9 +616,8 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             visual_type,
             visual_swipe,
             update_dashboard,
-            # Repo-specific tools (loaded from .swe/tools.py in each repo)
-            *load_repo_tools(work_dir),
         ],
+        subagents=subagent_configs,
         backend=sandbox_backend,
         middleware=[
             ToolErrorMiddleware(),
