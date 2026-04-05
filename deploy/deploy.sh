@@ -23,6 +23,10 @@ git submodule update --remote --merge
 echo "Updating Python dependencies..."
 uv sync --python 3.12
 
+# Pull secrets from AWS
+echo "Pulling .env from AWS..."
+bash deploy/pull-env.sh
+
 # Rebuild dashboard
 echo "Building dashboard..."
 cd dashboard

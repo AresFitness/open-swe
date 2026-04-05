@@ -94,14 +94,11 @@ echo "  ✅ Dashboard built"
 # ── 6. Environment file ────────────────────────────────────────────
 
 echo ""
-if [ ! -f "${REPO_DIR}/.env" ]; then
-    cp "${REPO_DIR}/.env.example" "${REPO_DIR}/.env"
-    chmod 600 "${REPO_DIR}/.env"
-    echo "  ⚠️  Created .env from template — fill in secrets before starting!"
-    echo "     ${REPO_DIR}/.env"
-else
-    echo "  ✅ .env already exists"
-fi
+echo "Pulling .env from AWS Secrets Manager..."
+su - "${AGENT_USER}" -c "cd ${REPO_DIR} && bash deploy/pull-env.sh" || {
+    echo "  ⚠️  Failed to pull .env from AWS. Create it manually:"
+    echo "     cp ${REPO_DIR}/.env.example ${REPO_DIR}/.env && vim ${REPO_DIR}/.env"
+}
 
 # ── 7. Install launchd service ──────────────────────────────────────
 
