@@ -1,0 +1,25 @@
+name: Deploy to Mac Mini
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.MAC_MINI_HOST }}
+          username: agent
+          key: ${{ secrets.MAC_MINI_SSH_KEY }}
+          port: ${{ secrets.MAC_MINI_SSH_PORT || 22 }}
+          script: |
+            bash /Users/agent/amp-swe-agent/deploy/deploy.sh
+
+      - name: Health check
+        run: |
+          sleep 5
+          curl -sf "https://${{ secrets.SWE_DOMAIN }}/health" || echo "Warning: health check failed (tunnel may not be configured yet)"
