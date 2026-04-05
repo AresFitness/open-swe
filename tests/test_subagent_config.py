@@ -2,7 +2,23 @@
 
 from __future__ import annotations
 
+from agent.prompt import construct_system_prompt
 from agent.server import build_subagent_configs
+
+
+def test_orchestrator_prompt_has_no_skills_or_conventions() -> None:
+    """Orchestrator prompt should not contain skill or convention content."""
+    prompt = construct_system_prompt(
+        working_dir="/sandbox",
+        repo_conventions=None,
+        repo_skills=None,
+    )
+    assert "<skills_" not in prompt
+    assert "TOOL_MAPPING" not in prompt
+    assert "Skill:" not in prompt
+    assert "<conventions_" not in prompt
+    # Base sections should still be there
+    assert "Working Environment" in prompt
 
 
 def test_builds_config_per_repo() -> None:
