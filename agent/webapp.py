@@ -1135,10 +1135,10 @@ def _resolve_file_sync(path: str) -> tuple[str | None, str]:
         return candidate, ct
 
     # 2. Try as absolute path
-    if path.startswith("private/") or path.startswith("Users/"):
+    if path.startswith("private/") or path.startswith("Users/") or path.startswith("tmp/"):
         abs_path = f"/{path}"
         real_abs = os.path.realpath(abs_path)
-        if any(real_abs.startswith(r) for r in allowed_roots) and os.path.isfile(real_abs):
+        if os.path.isfile(real_abs):
             ct = mimetypes.guess_type(real_abs)[0] or "application/octet-stream"
             return real_abs, ct
 
