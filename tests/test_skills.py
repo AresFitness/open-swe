@@ -8,7 +8,7 @@ import shlex
 import pytest
 from deepagents.backends.protocol import ExecuteResponse
 
-from agent.utils.skills import read_skills_in_sandbox
+from agent.utils.skills import read_agent_knowledge_in_sandbox, read_skills_in_sandbox
 
 
 class _FakeSandboxBackend:
@@ -123,3 +123,50 @@ async def test_multiple_skills_discovered() -> None:
     assert result["alpha"]["references"] == {}
     assert result["beta"]["content"] == "Beta skill content"
     assert result["beta"]["references"] == {"notes": "Beta notes"}
+
+
+@pytest.mark.asyncio
+async def test_discovers_skills_from_agents_dir() -> None:
+    """Skills in .agents/skills/ should be discovered."""
+    fs = {
+        "/repo/.agents/skills/swift-style/SKILL.md": "# Swift Style\nUse explicit self.",
+        "/repo/.agents/skills/swift-style/references/rules.md": "Rule details",
+    }
+    backend = _FakeSandboxBackend(fs=fs)
+    result = await read_skills_in_sandbox(backend, "/repo")
+    assert "swift-style" in result
+    assert result["swift-style"]["content"] == "# Swift Style\nUse explicit self."
+    assert result["swift-style"]["references"] == {"rules": "Rule details"}
+
+
+@pytest.mark.asyncio
+async def test_claude_skills_win_over_agents_skills() -> None:
+    """When same skill exists in both dirs, .claude/skills/ takes precedence."""
+    fs = {
+        "/repo/.claude/skills/my-skill/SKILL.md": "Claude version",
+        "/repo/.agents/skills/my-skill/SKILL.md": "Agents version",
+    }
+    backend = _FakeSandboxBackend(fs=fs)
+    result = await read_skills_in_sandbox(backend, "/repo")
+    assert result["my-skill"]["content"] == "Claude version"
+
+
+@pytest.mark.asyncio
+async def test_reads_agent_knowledge_files() -> None:
+    """Should discover and read .claude/agents/*.md files."""
+    fs = {
+        "/repo/.claude/agents/tool_xcode-build.md": "# Xcode Build\nHow to build.",
+        "/repo/.claude/agents/analytics-agent.md": "# Analytics\nTrack events.",
+    }
+    backend = _FakeSandboxBackend(fs=fs)
+    result = await read_agent_knowledge_in_sandbox(backend, "/repo")
+    assert len(result) == 2
+    assert result["tool_xcode-build"] == "# Xcode Build\nHow to build."
+    assert result["analytics-agent"] == "# Analytics\nTrack events."
+
+
+@pytest.mark.asyncio
+async def test_agent_knowledge_returns_empty_for_none() -> None:
+    backend = _FakeSandboxBackend()
+    result = await read_agent_knowledge_in_sandbox(backend, None)
+    assert result == {}
