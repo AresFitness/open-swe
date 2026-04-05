@@ -356,12 +356,38 @@ You MUST call `update_dashboard` at each phase transition to keep the kanban das
    `update_dashboard(phase="review", summary="<what comments are being addressed>")`"""
 
 
+ORCHESTRATOR_SECTION = """---
+
+### Sub-Agent Delegation
+
+You have specialist sub-agents for each repository in your workspace.
+Delegate repo-specific coding work to them using the `task` tool.
+
+**When to delegate:** Any task that requires reading, writing, or modifying code in a specific repo.
+**When NOT to delegate:** Cross-repo coordination, PR creation, communication (Slack/Linear/GitHub), dashboard updates.
+
+**How to delegate:**
+- `task(description="<what to do>", subagent_type="<repo-name>")`
+- The sub-agent has full knowledge of that repo's conventions, skills, and patterns.
+- It returns a result summary when done.
+
+**Cross-repo tasks:**
+1. Delegate to the backend repo sub-agent first (schema changes, API, etc.)
+2. Use the result to inform the next delegation
+3. Delegate to the iOS/frontend sub-agent second
+4. Coordinate the results and create PRs
+
+**Single-repo tasks:** Delegate to the appropriate sub-agent and use its result.
+"""
+
+
 SYSTEM_PROMPT = (
     WORKING_ENV_SECTION
     + FILE_MANAGEMENT_SECTION
     + TASK_OVERVIEW_SECTION
     + TASK_EXECUTION_SECTION
     + MULTI_REPO_SECTION
+    + ORCHESTRATOR_SECTION
     + TOOL_USAGE_SECTION
     + TOOL_BEST_PRACTICES_SECTION
     + CODING_STANDARDS_SECTION
@@ -390,7 +416,7 @@ When following skill instructions, use these equivalents:
 - Glob → execute with `find` or `ls`
 - Edit → execute with `sed` or write the full file
 - AskUserQuestion → present your question or plan via update_dashboard and STOP. If a Slack/Linear/GitHub channel is available, also send it there via slack_thread_reply, linear_comment, or github_comment.
-- Agent → use the `task` tool to spawn a subagent for the described work
+- Agent/Task → use the task tool to delegate work to a repo-specialist sub-agent
 
 When a skill says to "present to the user", "wait for approval", or "ask the user":
 1. Call update_dashboard with the current phase and your question/plan in the summary
@@ -485,3 +511,111 @@ def construct_system_prompt(
         linear_issue_number=linear_issue_number or "<ISSUE_NUMBER>",
         agents_md_section=agents_md_section,
     )
+
+
+SUBAGENT_BASE_PROMPT = """You are a specialist coding agent for the **{repo_name}** repository.
+
+You have deep expertise in this repo's codebase, conventions, and patterns.
+Your full knowledge (skills, conventions, agent guides) is loaded below.
+
+### Rules
+- Work only within {repo_name}/ — do not modify files in other repos.
+- Follow the coding conventions strictly.
+- When done, summarize what you changed and any issues encountered.
+- You must ALWAYS call a tool in EVERY SINGLE TURN.
+
+{working_env}
+{file_management}
+{coding_standards}
+{core_behavior}
+{dependency}
+
+{conventions_section}
+{skills_section}
+{agent_knowledge_section}
+"""
+
+
+def construct_subagent_prompt(
+    repo_name: str,
+    working_dir: str,
+    conventions: str,
+    agents_md: str,
+    skills: dict[str, dict],
+    agent_knowledge: dict[str, str],
+) -> str:
+    """Build a system prompt for a per-repo specialist sub-agent."""
+    conventions_section = ""
+    if conventions:
+        conventions_section = (
+            f"### Coding conventions for {repo_name}\n"
+            f"<conventions_{repo_name}>\n{conventions}\n</conventions_{repo_name}>\n"
+        )
+    if agents_md:
+        conventions_section += (
+            f"\n### AGENTS.md for {repo_name}\n"
+            f"<agents_md_{repo_name}>\n{agents_md}\n</agents_md_{repo_name}>\n"
+        )
+
+    skills_section = ""
+    if skills:
+        skills_section = TOOL_MAPPING_PREAMBLE
+        skills_section += f"\n<skills_{repo_name}>\n"
+        for skill_name, skill_data in skills.items():
+            skills_section += f"## Skill: {skill_name}\n"
+            skills_section += f"{skill_data['content']}\n\n"
+            for ref_name, ref_content in skill_data.get("references", {}).items():
+                skills_section += f"### Reference: {ref_name}\n"
+                skills_section += f"{ref_content}\n\n"
+        skills_section += f"</skills_{repo_name}>\n"
+
+    agent_knowledge_section = ""
+    if agent_knowledge:
+        agent_knowledge_section = f"\n<agent_knowledge_{repo_name}>\n"
+        for name, content in agent_knowledge.items():
+            agent_knowledge_section += f"## {name}\n{content}\n\n"
+        agent_knowledge_section += f"</agent_knowledge_{repo_name}>\n"
+
+    return SUBAGENT_BASE_PROMPT.format(
+        repo_name=repo_name,
+        working_env=WORKING_ENV_SECTION.format(working_dir=working_dir),
+        file_management=FILE_MANAGEMENT_SECTION.format(working_dir=working_dir),
+        coding_standards=CODING_STANDARDS_SECTION,
+        core_behavior=CORE_BEHAVIOR_SECTION,
+        dependency=DEPENDENCY_SECTION,
+        conventions_section=conventions_section,
+        skills_section=skills_section,
+        agent_knowledge_section=agent_knowledge_section,
+    )
+
+
+def build_subagent_description(
+    repo_name: str,
+    conventions: str,
+    skills: dict[str, dict],
+    agent_knowledge: dict[str, str],
+) -> str:
+    """Build a compact description of a sub-agent for the orchestrator."""
+    repo_summary = ""
+    for line in conventions.splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            repo_summary = line[:120]
+            break
+
+    skill_names = sorted(skills.keys())
+    knowledge_names = sorted(agent_knowledge.keys())
+
+    parts = [f"Specialist for {repo_name}. {repo_summary}"]
+
+    if skill_names:
+        shown = skill_names[:8]
+        remaining = len(skill_names) - len(shown)
+        parts.append(f"Skills: {', '.join(shown)}" + (f", and {remaining} more" if remaining else ""))
+
+    if knowledge_names:
+        shown = knowledge_names[:5]
+        remaining = len(knowledge_names) - len(shown)
+        parts.append(f"Knows: {', '.join(shown)}" + (f", and {remaining} more" if remaining else ""))
+
+    return " ".join(parts)
