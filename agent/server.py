@@ -33,7 +33,7 @@ from .middleware import (
     ensure_no_empty_msg,
     open_pr_if_needed,
 )
-from .prompt import construct_system_prompt
+from .prompt import build_subagent_description, construct_subagent_prompt, construct_system_prompt
 from .tools import (
     commit_and_open_pr,
     create_pr_review,
@@ -86,6 +86,44 @@ from .utils.github import (
 )
 from .utils.sandbox_paths import aresolve_repo_dir, aresolve_sandbox_work_dir
 from .utils.sandbox_state import SANDBOX_BACKENDS, get_sandbox_id_from_metadata
+
+
+def build_subagent_configs(
+    repo_data: dict[str, dict],
+    work_dir: str,
+) -> list[dict]:
+    """Build SubAgent configs from collected repo data.
+
+    Args:
+        repo_data: Dict mapping repo_name to
+            {"conventions", "agents_md", "skills", "agent_knowledge"}
+        work_dir: Sandbox working directory
+
+    Returns:
+        List of SubAgent config dicts for SubAgentMiddleware.
+    """
+    subagents = []
+    for repo_name, data in sorted(repo_data.items()):
+        system_prompt = construct_subagent_prompt(
+            repo_name=repo_name,
+            working_dir=work_dir,
+            conventions=data.get("conventions", ""),
+            agents_md=data.get("agents_md", ""),
+            skills=data.get("skills", {}),
+            agent_knowledge=data.get("agent_knowledge", {}),
+        )
+        description = build_subagent_description(
+            repo_name=repo_name,
+            conventions=data.get("conventions", ""),
+            skills=data.get("skills", {}),
+            agent_knowledge=data.get("agent_knowledge", {}),
+        )
+        subagents.append({
+            "name": repo_name,
+            "description": description,
+            "system_prompt": system_prompt,
+        })
+    return subagents
 
 
 async def _clone_or_pull_repo_in_sandbox(  # noqa: PLR0915
