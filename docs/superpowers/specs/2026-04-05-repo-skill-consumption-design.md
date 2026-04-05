@@ -64,10 +64,14 @@ When following skill instructions, use these equivalents:
 - Grep -> execute with `grep` or `rg`
 - Glob -> execute with `find` or `ls`
 - Edit -> execute with `sed` or write the full file
-- AskUserQuestion -> use your communication channel (slack_thread_reply, linear_comment, or github_comment depending on the task source)
+- AskUserQuestion -> present your question or plan via update_dashboard and STOP. If a Slack/Linear/GitHub channel is available, also send it there.
 - Agent -> you do not have subagents; perform the work sequentially yourself
 
-When a skill says to "present to the user" or "wait for approval", send the message via your communication channel and STOP. The user will respond as a follow-up message in your thread. Do not proceed past approval gates until you receive a response.
+When a skill says to "present to the user", "wait for approval", or "ask the user":
+1. Call update_dashboard with the current phase and your question/plan in the summary
+2. If a communication channel is available (slack_thread_reply, linear_comment, github_comment), also send the message there
+3. STOP -- do not continue past the approval gate
+4. The user will respond via the dashboard chat. Their answer arrives as a new message in your next run.
 
 When a skill says to "take a screenshot", "read a screenshot", or present visual results:
 1. Capture the screenshot via execute
