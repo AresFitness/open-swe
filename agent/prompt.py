@@ -418,12 +418,38 @@ SYSTEM_PROMPT = (
 )
 
 
+TOOL_MAPPING_PREAMBLE = """
+<tool_mapping>
+Skills loaded from repos are written for Claude Code and reference its tool names.
+When following skill instructions, use these equivalents:
+
+- Bash → execute (run shell commands in the sandbox)
+- Read → execute with `cat`
+- Write → execute with file write commands
+- Grep → execute with `grep` or `rg`
+- Glob → execute with `find` or `ls`
+- Edit → execute with `sed` or write the full file
+- AskUserQuestion → use your communication channel (slack_thread_reply, linear_comment, or github_comment depending on the task source)
+- Agent → you do not have subagents; perform the work sequentially yourself
+
+When a skill says to "present to the user" or "wait for approval", send the message via your communication channel and STOP. The user will respond as a follow-up message in your thread. Do not proceed past approval gates until you receive a response.
+
+When a skill says to "take a screenshot", "read a screenshot", or present visual results:
+1. Capture the screenshot via execute
+2. Analyze it yourself (describe what you see)
+3. Share it with the user — call update_dashboard(screenshots=[path]) AND include a description in your communication message
+Always share screenshots after each test step, when asking for help, and in the final results summary.
+</tool_mapping>
+"""
+
+
 def construct_system_prompt(
     working_dir: str,
     linear_project_id: str = "",
     linear_issue_number: str = "",
     agents_md: str = "",
     repo_conventions: dict[str, str] | None = None,
+    repo_skills: dict[str, dict] | None = None,
     superpowers_prompt: str = "",
 ) -> str:
     agents_md_section = ""
@@ -446,6 +472,19 @@ def construct_system_prompt(
                     f"{conventions}\n"
                     f"</conventions_{repo_name}>\n"
                 )
+    if repo_skills:
+        agents_md_section += TOOL_MAPPING_PREAMBLE
+        for repo_name, skills in repo_skills.items():
+            if skills:
+                agents_md_section += f"\n<skills_{repo_name}>\n"
+                for skill_name, skill_data in skills.items():
+                    agents_md_section += f"## Skill: {skill_name}\n"
+                    agents_md_section += f"{skill_data['content']}\n\n"
+                    for ref_name, ref_content in skill_data.get("references", {}).items():
+                        agents_md_section += f"### Reference: {ref_name}\n"
+                        agents_md_section += f"{ref_content}\n\n"
+                agents_md_section += f"</skills_{repo_name}>\n"
+
     if superpowers_prompt:
         agents_md_section += (
             "\n### Superpowers Workflow (ENABLED)\n\n"
