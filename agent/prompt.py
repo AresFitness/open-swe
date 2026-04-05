@@ -390,7 +390,7 @@ When following skill instructions, use these equivalents:
 - Glob → execute with `find` or `ls`
 - Edit → execute with `sed` or write the full file
 - AskUserQuestion → present your question or plan via update_dashboard and STOP. If a Slack/Linear/GitHub channel is available, also send it there via slack_thread_reply, linear_comment, or github_comment.
-- Agent → you do not have subagents; perform the work sequentially yourself
+- Agent → use the `task` tool to spawn a subagent for the described work
 
 When a skill says to "present to the user", "wait for approval", or "ask the user":
 1. Call update_dashboard with the current phase and your question/plan in the summary
