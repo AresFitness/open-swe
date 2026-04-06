@@ -441,7 +441,19 @@ def reset_sandbox_repos():
                 ["git", "clean", "-fd"],
                 cwd=repo_path, capture_output=True,
             )
-            logger.info("Reset %s to origin/%s (clean)", repo, branch)
+            # Delete all open-swe/* branches to avoid stale state from previous runs
+            result = subprocess.run(
+                ["git", "branch", "--list", "open-swe/*"],
+                cwd=repo_path, capture_output=True, text=True,
+            )
+            for branch_name in result.stdout.strip().splitlines():
+                branch_name = branch_name.strip().lstrip("* ")
+                if branch_name:
+                    subprocess.run(
+                        ["git", "branch", "-D", branch_name],
+                        cwd=repo_path, capture_output=True,
+                    )
+            logger.info("Reset %s to origin/%s (clean, removed stale branches)", repo, branch)
         else:
             logger.warning("Repo %s not found at %s", repo, repo_path)
 
