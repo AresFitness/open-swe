@@ -437,7 +437,11 @@ def reset_sandbox_repos():
                 ["git", "reset", "--hard", f"origin/{branch}"],
                 cwd=repo_path, capture_output=True,
             )
-            logger.info("Reset %s to origin/%s", repo, branch)
+            subprocess.run(
+                ["git", "clean", "-fd"],
+                cwd=repo_path, capture_output=True,
+            )
+            logger.info("Reset %s to origin/%s (clean)", repo, branch)
         else:
             logger.warning("Repo %s not found at %s", repo, repo_path)
 

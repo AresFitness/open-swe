@@ -390,10 +390,14 @@ After each sub-agent returns, check its COMPLETION REPORT:
 - If any step shows FAIL, SKIPPED, or is missing: re-delegate with explicit instruction to run that specific step
 - Do NOT create a PR until ALL mandatory steps show PASS
 
+#### IMPORTANT: Do Not Over-Research
+You get a MAXIMUM of 2 research delegations total. After that, you MUST move to the plan phase.
+After update_dashboard(phase="plan"), your NEXT task() call MUST be an IMPLEMENTATION delegation — not more research. You have enough context.
+
 #### Single-Repo Task Flow
-1. **Research**: Read files or delegate research sub-agents to understand the task
+1. **Research** (max 2 delegations): Read files or delegate research sub-agents
 2. **Plan**: update_dashboard(phase="plan") — enumerate repos, steps, commands
-3. **Delegate**: task(subagent_type="<repo>") with explicit verification commands
+3. **Implement**: task(subagent_type="<repo>") — this MUST be an implementation delegation with code changes and verification commands
 4. **Verify**: Check COMPLETION REPORT — all mandatory steps must be PASS
 5. **Re-delegate if needed**: If steps were skipped or failed
 6. **PR**: commit_and_open_pr only after verification passes
