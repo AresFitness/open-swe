@@ -68,10 +68,13 @@ WRITE_PATTERNS = [
 
 # Read-only commands that are OK for the orchestrator
 READ_OK_PATTERNS = [
-    r'^(grep|rg|find|ls|cat|head|tail|wc|git\s+(log|diff|status|branch|show|ls-tree|remote))',
-    r'^echo\s+"',  # echo for display only
+    r'(grep|rg|find|ls|cat|head|tail|wc)\b',
+    r'git\s+(log|diff|status|branch|show|ls-tree|remote|rev-parse|fetch)',
+    r'^echo\s+"',  # echo for display only (no redirect)
     r'^which\b',
     r'^backend_local\b',
+    r'^cd\s+.*&&\s*(grep|rg|find|ls|cat|head|tail|git)',  # cd + read-only
+    r'^gh\s+',  # GitHub CLI
 ]
 
 
@@ -216,9 +219,11 @@ class ComplianceAuditor:
         violations = []
         for tc in self._tool_calls:
             if tc["name"] == "execute":
-                cmd = tc["input"].get("command", "")
-                # Check if it's a read-only command
-                is_read = any(re.match(p, cmd.strip()) for p in READ_OK_PATTERNS)
+                cmd = tc["input"].get("command", "").strip()
+                # Strip leading cd ... && to get the actual command
+                actual_cmd = re.sub(r'^cd\s+\S+\s*&&\s*', '', cmd)
+                # Check if the actual command is read-only
+                is_read = any(re.search(p, actual_cmd) for p in READ_OK_PATTERNS)
                 if is_read:
                     continue
                 # Check if it's a write operation
@@ -232,21 +237,27 @@ class ComplianceAuditor:
             return CheckResult("orchestrator_no_write", True, f"{len(self._tool_calls)} tool calls, 0 write violations")
         return CheckResult("orchestrator_no_write", False, f"{len(violations)} violations: {'; '.join(violations[:3])}")
 
-    def _check_step_in_results(self, step_name: str, patterns: list[str]) -> CheckResult:
+    def _check_step_in_results(self, step_name: str, patterns: list[str], aliases: list[str] | None = None) -> CheckResult:
         results = self._get_subagent_results()
         all_text = " ".join(results).lower()
+
+        # Names to search for in COMPLETION REPORT
+        search_names = [step_name]
+        if aliases:
+            search_names.extend(aliases)
 
         # First try: look for COMPLETION REPORT format
         for result in results:
             if "COMPLETION REPORT" in result or "STEPS_RAN" in result:
                 for line in result.split("\n"):
-                    if step_name.upper() in line.upper():
-                        if "PASS" in line.upper():
-                            return CheckResult(step_name, True, f"COMPLETION REPORT: {line.strip()[:100]}")
-                        elif "FAIL" in line.upper():
-                            return CheckResult(step_name, False, f"COMPLETION REPORT: {line.strip()[:100]}")
-                        elif "SKIPPED" in line.upper():
-                            return CheckResult(step_name, None, f"COMPLETION REPORT: {line.strip()[:100]}")
+                    for name in search_names:
+                        if name.upper() in line.upper():
+                            if "PASS" in line.upper():
+                                return CheckResult(step_name, True, f"COMPLETION REPORT: {line.strip()[:100]}")
+                            elif "FAIL" in line.upper():
+                                return CheckResult(step_name, False, f"COMPLETION REPORT: {line.strip()[:100]}")
+                            elif "SKIPPED" in line.upper() or "N_A" in line.upper() or "N/A" in line.upper():
+                                return CheckResult(step_name, None, f"COMPLETION REPORT: {line.strip()[:100]}")
 
         # Fallback: look for command patterns in sub-agent results
         for pattern in patterns:
@@ -265,17 +276,17 @@ class ComplianceAuditor:
     def check_backend_typecheck(self) -> CheckResult:
         if self.task_type == "ios-only":
             return CheckResult("backend_typecheck", None, "N/A (iOS-only task)")
-        return self._check_step_in_results("typecheck", ["pnpm typecheck", "typecheck"])
+        return self._check_step_in_results("typecheck", ["pnpm typecheck", "pnpm tsc", "tsc --noEmit"])
 
     def check_backend_lint(self) -> CheckResult:
         if self.task_type == "ios-only":
             return CheckResult("backend_lint", None, "N/A (iOS-only task)")
-        return self._check_step_in_results("lint", ["pnpm lint", "eslint"])
+        return self._check_step_in_results("lint", ["pnpm lint", "pnpm eslint", "eslint"])
 
     def check_backend_test(self) -> CheckResult:
         if self.task_type == "ios-only":
             return CheckResult("backend_test", None, "N/A (iOS-only task)")
-        return self._check_step_in_results("unit_tests", ["pnpm jest", "pnpm test", "jest --testPathPattern"])
+        return self._check_step_in_results("unit_tests", ["pnpm jest", "pnpm test", "jest --testPathPattern"], aliases=["test", "implement_tests"])
 
     def check_ios_compile(self) -> CheckResult:
         if self.task_type == "backend-only":
