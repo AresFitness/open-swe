@@ -1,4 +1,5 @@
 from .commit_and_open_pr import commit_and_open_pr
+from .cross_repo_flow import cross_repo_dev_flow
 from .cross_repo_pr import cross_repo_commit_and_open_prs
 from .dashboard import update_dashboard
 from .fetch_url import fetch_url
@@ -28,6 +29,7 @@ __all__ = [
     "commit_and_open_pr",
     "create_pr_review",
     "cross_repo_commit_and_open_prs",
+    "cross_repo_dev_flow",
     "dismiss_pr_review",
     "fetch_url",
     "get_pr_review",

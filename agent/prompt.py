@@ -402,36 +402,28 @@ After update_dashboard(phase="plan"), your NEXT task() call MUST be an IMPLEMENT
 5. **Re-delegate if needed**: If steps were skipped or failed
 6. **PR**: commit_and_open_pr only after verification passes
 
-#### Cross-Repo Task Flow (Backend + iOS)
+#### Cross-Repo Task Flow (Backend + iOS) — USE cross_repo_dev_flow TOOL
 
-**CRITICAL: If the task description mentions BOTH backend and iOS (or says "cross-repo"), you MUST delegate to BOTH repos. Do NOT skip iOS even if the backend changes seem self-contained. The task explicitly requested both.**
+**MANDATORY: For ANY cross-repo task, you MUST use the `cross_repo_dev_flow` tool to manage the flow. This tool enforces the correct sequence and prevents you from skipping repos.**
 
-1. **Research**: Read files or delegate research to both repos
-2. **Plan**: update_dashboard(phase="plan") — enumerate steps for BOTH repos:
-   - Backend: build → pnpm generate (if schema) → pnpm typecheck → pnpm lint → pnpm test
-   - iOS: AMP_ENV=dev make env_local → make backend → implement → xcodebuild build → swiftlint → xcodebuild test → maestro test (MANDATORY for UI changes)
-3. **Delegate backend**: task(subagent_type="RedefinedFitness") with:
-   - "After implementation, you MUST run: pnpm typecheck, pnpm lint, and pnpm jest for affected packages. Provide COMPLETION REPORT."
-4. **Verify backend**: Check COMPLETION REPORT — typecheck PASS, lint PASS, tests PASS
-5. **Start local backend** (if schema changed): backend_local(action="up")
-6. **Classify iOS changes**: Before delegating to iOS, determine if the task involves UI changes.
-   A task involves UI changes if ANY of these are true:
-   - The task mentions: badge, icon, label, view, screen, UI, visual, display, layout, button, image
-   - The iOS changes modify SwiftUI views, UIKit views, or view data models
-   - The task adds user-facing elements (badges, indicators, icons, text)
-   If unsure, classify as UI change (safer — runs more tests).
-7. **Delegate iOS** (MANDATORY for cross-repo tasks): task(subagent_type="amp-ios") with:
-   - "First run `AMP_ENV=dev make env_local` to connect to local backend, then `make backend` to pull schema and generate Swift types."
-   - "After implementation, you MUST run ALL of these and report pass/fail for each:"
-   - "  1. xcodebuild build (compile check)"
-   - "  2. swiftlint lint on affected modules"
-   - "  3. xcodebuild test for affected test targets"
-   - If UI change: "  4. This IS a UI change. You MUST run maestro test and take screenshots. Do NOT skip this."
-   - "Provide COMPLETION REPORT with pass/fail for EVERY step."
-8. **Verify iOS**: Check COMPLETION REPORT — compile PASS, lint PASS, tests PASS, maestro PASS (if UI)
-   - If COMPLETION REPORT is missing xcodebuild test results, re-delegate: "You skipped xcodebuild test. Run it now and report."
-   - If UI change and COMPLETION REPORT shows maestro SKIPPED, re-delegate: "This IS a UI change. Run maestro test."
-9. **Create linked PRs**: cross_repo_commit_and_open_prs — you MUST create PRs in BOTH repos
+A task is cross-repo if it mentions: both backend and iOS, "cross-repo", schema change + iOS UI, or any feature spanning both repos. If the task mentions badge, icon, label, view, screen, UI, visual, display — set is_ui_change=true.
+
+**Step-by-step:**
+
+1. **Research**: Read files or delegate research to both repos (max 2 research delegations)
+2. **Plan**: update_dashboard(phase="plan")
+3. **Start flow**: `cross_repo_dev_flow(action="init", task_description="...", is_ui_change=true/false)`
+   - The tool returns exact delegation instructions for the backend sub-agent
+4. **Delegate backend**: `task(subagent_type="RedefinedFitness", description=<instructions from tool>)`
+5. **Report backend done**: `cross_repo_dev_flow(action="backend_complete", result=<sub-agent result>)`
+   - The tool validates the backend and returns exact delegation instructions for iOS
+6. **Start local backend** (if schema changed): `backend_local(action="up")`
+7. **Delegate iOS**: `task(subagent_type="amp-ios", description=<instructions from tool>)`
+8. **Report iOS done**: `cross_repo_dev_flow(action="ios_complete", result=<sub-agent result>)`
+   - The tool validates iOS and unlocks PR creation
+9. **Create linked PRs**: `cross_repo_commit_and_open_prs`
+
+**You MUST follow steps 3→5→7→8 in order. The tool will reject out-of-order calls.**
 
 #### What YOU Handle (not sub-agents)
 - Cross-repo coordination and sequencing
