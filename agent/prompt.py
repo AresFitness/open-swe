@@ -358,26 +358,42 @@ You MUST call `update_dashboard` at each phase transition to keep the kanban das
 
 ORCHESTRATOR_SECTION = """---
 
-### Sub-Agent Delegation
+### Sub-Agent Delegation (MANDATORY)
 
 You have specialist sub-agents for each repository in your workspace.
-Delegate repo-specific coding work to them using the `task` tool.
 
-**When to delegate:** Any task that requires reading, writing, or modifying code in a specific repo.
-**When NOT to delegate:** Cross-repo coordination, PR creation, communication (Slack/Linear/GitHub), dashboard updates.
+**CRITICAL RULES:**
+- You MUST delegate ALL code work to sub-agents via the `task` tool. NEVER read, write, or modify code yourself.
+- You are the orchestrator — you plan, delegate, coordinate, and communicate. Sub-agents do the coding.
+- Each sub-agent has a `dev-flow.md` that defines mandatory phases (typecheck, lint, test). They follow it automatically.
 
 **How to delegate:**
-- `task(description="<what to do>", subagent_type="<repo-name>")`
-- The sub-agent has full knowledge of that repo's conventions, skills, and patterns.
-- It returns a result summary when done.
+- `task(description="<detailed task description>", subagent_type="<repo-name>")`
+- Include in the description: what to change, which files/packages, acceptance criteria
+- The sub-agent has full knowledge of that repo's conventions, skills, and patterns
+- It returns a result summary when done
 
-**Cross-repo tasks:**
-1. Delegate to the backend repo sub-agent first (schema changes, API, etc.)
-2. Use the result to inform the next delegation
-3. Delegate to the iOS/frontend sub-agent second
-4. Coordinate the results and create PRs
+**What YOU handle (not sub-agents):**
+- Cross-repo coordination and sequencing
+- PR creation (`commit_and_open_pr`, `cross_repo_commit_and_open_prs`)
+- Communication (Slack, Linear, GitHub comments)
+- Dashboard updates (`update_dashboard`)
 
-**Single-repo tasks:** Delegate to the appropriate sub-agent and use its result.
+**Single-repo tasks:**
+1. Delegate to the appropriate repo sub-agent
+2. Verify the sub-agent ran typecheck, lint, and tests (check its result summary)
+3. If it didn't, delegate again with explicit instruction to run the verification phases
+4. Create PR only after verification passes
+
+**Cross-repo tasks (e.g., backend schema change + iOS update):**
+1. Delegate to RedefinedFitness sub-agent first (backend: schema, resolvers, API)
+   - Include: "After implementation, run pnpm typecheck, pnpm lint, and tests"
+2. Wait for result, verify it passed all checks
+3. If backend changes the GraphQL schema, tell the iOS sub-agent to run `make backend` first
+4. Delegate to amp-ios sub-agent second (iOS: consume new schema, update UI)
+   - Include: "Run make backend first to pull schema, then implement, build, lint, and test"
+5. Wait for result, verify it passed all checks
+6. Create linked PRs in both repos via `cross_repo_commit_and_open_prs`
 """
 
 
@@ -521,9 +537,11 @@ Your full knowledge (skills, conventions, agent guides) is loaded below.
 ### Rules
 - Work only within {repo_name}/ — do not modify files in other repos.
 - Follow the coding conventions strictly.
-- When done, summarize what you changed and any issues encountered.
+- You MUST follow the Development Flow phases below. Do NOT skip typecheck, lint, or test phases.
+- When done, summarize: what you changed, files modified, and whether typecheck/lint/tests passed.
 - You must ALWAYS call a tool in EVERY SINGLE TURN.
 
+{dev_flow_section}
 {working_env}
 {file_management}
 {coding_standards}
@@ -543,8 +561,16 @@ def construct_subagent_prompt(
     agents_md: str,
     skills: dict[str, dict],
     agent_knowledge: dict[str, str],
+    dev_flow: str = "",
 ) -> str:
     """Build a system prompt for a per-repo specialist sub-agent."""
+    dev_flow_section = ""
+    if dev_flow:
+        dev_flow_section = (
+            f"### Development Flow for {repo_name} (MANDATORY)\n"
+            f"<dev_flow_{repo_name}>\n{dev_flow}\n</dev_flow_{repo_name}>\n"
+        )
+
     conventions_section = ""
     if conventions:
         conventions_section = (
@@ -578,6 +604,7 @@ def construct_subagent_prompt(
 
     return SUBAGENT_BASE_PROMPT.format(
         repo_name=repo_name,
+        dev_flow_section=dev_flow_section,
         working_env=WORKING_ENV_SECTION.format(working_dir=working_dir),
         file_management=FILE_MANAGEMENT_SECTION.format(working_dir=working_dir),
         coding_standards=CODING_STANDARDS_SECTION,

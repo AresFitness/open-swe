@@ -203,3 +203,32 @@ async def read_agent_knowledge_in_sandbox(
         logger.info("Loaded agent knowledge '%s' from %s", name, file_path)
 
     return knowledge
+
+
+async def read_dev_flow_in_sandbox(
+    sandbox_backend: SandboxBackendProtocol,
+    repo_dir: str | None,
+) -> str:
+    """Read the dev-flow.md from ``.swe/dev-flow.md`` in a repo.
+
+    Returns the file content, or empty string if not found.
+    """
+    if not repo_dir:
+        return ""
+
+    loop = asyncio.get_event_loop()
+    dev_flow_path = shlex.quote(f"{repo_dir}/.swe/dev-flow.md")
+    result = await loop.run_in_executor(
+        None,
+        sandbox_backend.execute,
+        f"test -f {dev_flow_path} && cat {dev_flow_path}",
+    )
+
+    if result.exit_code != 0:
+        logger.debug("No dev-flow.md found at %s", dev_flow_path)
+        return ""
+
+    content = (result.output or "").strip()
+    if content:
+        logger.info("Loaded dev-flow.md from %s", repo_dir)
+    return content

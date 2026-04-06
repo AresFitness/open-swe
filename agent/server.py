@@ -74,7 +74,7 @@ SANDBOX_POLL_INTERVAL = 1.0
 
 from .utils.agents_md import read_agents_md_in_sandbox
 from .utils.claude_md import read_claude_md_in_sandbox
-from .utils.skills import read_agent_knowledge_in_sandbox, read_skills_in_sandbox
+from .utils.skills import read_agent_knowledge_in_sandbox, read_dev_flow_in_sandbox, read_skills_in_sandbox
 from .utils.github import (
     _CRED_FILE_PATH,
     cleanup_git_credentials,
@@ -110,6 +110,7 @@ def build_subagent_configs(
             agents_md=data.get("agents_md", ""),
             skills=data.get("skills", {}),
             agent_knowledge=data.get("agent_knowledge", {}),
+            dev_flow=data.get("dev_flow", ""),
         )
         description = build_subagent_description(
             repo_name=repo_name,
@@ -539,6 +540,19 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             if extra_agents_md:
                 repo_agents_md[extra_name] = extra_agents_md
 
+    # Read dev-flow.md from all repos
+    repo_dev_flows: dict[str, str] = {}
+    primary_dev_flow = await read_dev_flow_in_sandbox(sandbox_backend, repo_dir)
+    if primary_dev_flow and repo_name:
+        repo_dev_flows[repo_name] = primary_dev_flow
+    for extra_repo in additional_repos:
+        extra_name = extra_repo.get("name")
+        if extra_name and extra_name != repo_name:
+            extra_dir = await aresolve_repo_dir(sandbox_backend, extra_name)
+            extra_dev_flow = await read_dev_flow_in_sandbox(sandbox_backend, extra_dir)
+            if extra_dev_flow:
+                repo_dev_flows[extra_name] = extra_dev_flow
+
     # Build per-repo data for sub-agent configuration
     all_repo_names = set()
     if repo_name:
@@ -555,6 +569,7 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             "agents_md": repo_agents_md.get(rname, ""),
             "skills": repo_skills.get(rname, {}),
             "agent_knowledge": repo_agent_knowledge.get(rname, {}),
+            "dev_flow": repo_dev_flows.get(rname, ""),
         }
 
     # Use the sandbox work dir as working_dir so the agent sees all repos
