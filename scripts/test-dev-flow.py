@@ -246,8 +246,8 @@ class ComplianceAuditor:
         if aliases:
             search_names.extend(aliases)
 
-        # First try: look for COMPLETION REPORT format
-        for result in results:
+        # First try: look for COMPLETION REPORT format (iterate REVERSE — prefer last/implementation result)
+        for result in reversed(results):
             if "COMPLETION REPORT" in result or "STEPS_RAN" in result:
                 for line in result.split("\n"):
                     for name in search_names:

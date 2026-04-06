@@ -399,20 +399,24 @@ After each sub-agent returns, check its COMPLETION REPORT:
 6. **PR**: commit_and_open_pr only after verification passes
 
 #### Cross-Repo Task Flow (Backend + iOS)
+
+**CRITICAL: If the task description mentions BOTH backend and iOS (or says "cross-repo"), you MUST delegate to BOTH repos. Do NOT skip iOS even if the backend changes seem self-contained. The task explicitly requested both.**
+
 1. **Research**: Read files or delegate research to both repos
-2. **Plan**: update_dashboard(phase="plan") — enumerate:
+2. **Plan**: update_dashboard(phase="plan") — enumerate steps for BOTH repos:
    - Backend: build → pnpm generate (if schema) → pnpm typecheck → pnpm lint → pnpm test
-   - iOS: AMP_ENV=dev make env_local → make backend → implement → xcodebuild build → swiftlint → xcodebuild test → maestro test (if UI change)
+   - iOS: AMP_ENV=dev make env_local → make backend → implement → xcodebuild build → swiftlint → xcodebuild test → maestro test (MANDATORY for UI changes)
 3. **Delegate backend**: task(subagent_type="RedefinedFitness") with:
    - "After implementation, you MUST run: pnpm typecheck, pnpm lint, and pnpm jest for affected packages. Provide COMPLETION REPORT."
 4. **Verify backend**: Check COMPLETION REPORT — typecheck PASS, lint PASS, tests PASS
 5. **Start local backend** (if schema changed): backend_local(action="up")
-6. **Delegate iOS**: task(subagent_type="amp-ios") with:
+6. **Delegate iOS** (MANDATORY for cross-repo tasks): task(subagent_type="amp-ios") with:
    - "First run `AMP_ENV=dev make env_local` to connect to local backend, then `make backend` to pull schema and generate Swift types."
-   - "After implementation, you MUST run: xcodebuild build, swiftlint lint, xcodebuild test. If this involves UI changes, you MUST also run maestro test and take screenshots."
+   - "After implementation, you MUST run: xcodebuild build, swiftlint lint, xcodebuild test."
+   - "This task involves UI changes — you MUST run maestro test and take screenshots."
    - "Provide COMPLETION REPORT."
-7. **Verify iOS**: Check COMPLETION REPORT — compile PASS, lint PASS, tests PASS, maestro PASS (if UI)
-8. **Create linked PRs**: cross_repo_commit_and_open_prs
+7. **Verify iOS**: Check COMPLETION REPORT — compile PASS, lint PASS, tests PASS, maestro PASS
+8. **Create linked PRs**: cross_repo_commit_and_open_prs — you MUST create PRs in BOTH repos
 
 #### What YOU Handle (not sub-agents)
 - Cross-repo coordination and sequencing
