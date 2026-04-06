@@ -160,9 +160,11 @@ def cross_repo_dev_flow(
                 "Provide COMPLETION REPORT at the end."
             ),
             "message": (
-                "Backend verified. NOW you MUST delegate to amp-ios with the "
-                "delegation_instructions above. After it returns, call this tool again "
-                "with action='ios_complete' and the sub-agent's result."
+                "Backend verified. YOUR NEXT ACTION MUST BE: "
+                "task(subagent_type='amp-ios', description=<delegation_instructions above>). "
+                "Do NOT read files, do NOT grep, do NOT do anything else. "
+                "Call task() for amp-ios RIGHT NOW. "
+                "After it returns, call cross_repo_dev_flow(action='ios_complete', result=<sub-agent result>)."
             ),
         }
 
@@ -174,12 +176,35 @@ def cross_repo_dev_flow(
                          "Backend must be completed first.",
             }
 
+        # Validate that the result looks like it came from an actual sub-agent implementation
+        # (not just the orchestrator reading files)
+        if not result or len(result) < 100:
+            return {
+                "success": False,
+                "error": "The iOS result is too short. You MUST delegate to the amp-ios sub-agent "
+                         "using task(subagent_type='amp-ios') and pass its FULL result here. "
+                         "Do NOT read iOS files yourself — delegate the implementation.",
+            }
+
+        result_upper = result.upper()
+        has_implementation_evidence = any(kw in result_upper for kw in [
+            "COMPLETION REPORT", "STEPS_RAN", "FILES_MODIFIED",
+            "XCODEBUILD", "SWIFTLINT", "COMPILE", "BUILD SUCCEEDED",
+        ])
+        if not has_implementation_evidence:
+            return {
+                "success": False,
+                "error": "The iOS result does not contain implementation evidence "
+                         "(no COMPLETION REPORT, no xcodebuild, no swiftlint). "
+                         "You MUST delegate to amp-ios sub-agent via task() and pass its result. "
+                         "Do NOT skip the iOS implementation.",
+            }
+
         _flow_state["ios_delegated"] = True
         _flow_state["ios_result"] = result
 
         # Validate iOS result
         errors = []
-        result_upper = result.upper()
         if "COMPILE" not in result_upper and "BUILD" not in result_upper:
             errors.append("iOS COMPILE/BUILD result not found")
         if "LINT" not in result_upper and "SWIFTLINT" not in result_upper:
