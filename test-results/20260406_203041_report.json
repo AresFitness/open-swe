@@ -1,0 +1,65 @@
+{
+  "task": "Add a new isCommunityWorkout boolean field to the planned workout model. This field marks workouts created by the Amp customer community. On the iOS app, community workouts should display a unique icon/badge on the workout preview screen to distinguish them from coach-created workouts. This is a cross-repo feature: backend schema + iOS UI.",
+  "task_type": "cross-repo",
+  "thread_id": "05cc285b-081c-4fcd-a589-4bb6aeb77c6a",
+  "run_id": "019d6470-8080-7cc3-9925-564eebe2d534",
+  "status": "success",
+  "duration_seconds": 840.5701990127563,
+  "total_messages": 19,
+  "total_tool_calls": 9,
+  "delegations": [
+    {
+      "subagent": "RedefinedFitness",
+      "description": "Research the planned workout model in the RedefinedFitness backend repo. I need to understand:\n\n1. Find the GraphQL schema definition for PlannedWorkout (search in `amplify/backend/api/` or similar). Show me the full type definition.\n2. Find the database schema/model for PlannedWorkout (search in pa",
+      "msg_idx": 3
+    },
+    {
+      "subagent": "amp-ios",
+      "description": "Research the iOS app's workout preview screen and how it displays planned workouts. I need to understand:\n\n1. Find the workout preview screen/view in the iOS codebase (likely in Modules/ somewhere). Search for files related to \"WorkoutPreview\", \"PlannedWorkout\", \"WorkoutCard\", or similar.\n2. Find ho",
+      "msg_idx": 3
+    }
+  ],
+  "checks": {
+    "plan_before_build": {
+      "pass": true,
+      "details": "Plan at msg #12, no impl delegation found"
+    },
+    "orchestrator_no_write": {
+      "pass": true,
+      "details": "9 tool calls, 0 write violations"
+    },
+    "typecheck": {
+      "pass": false,
+      "details": "NOT FOUND \u2014 none of ['pnpm typecheck', 'pnpm tsc', 'tsc --noEmit'] appeared in sub-agent results"
+    },
+    "lint": {
+      "pass": null,
+      "details": "COMPLETION REPORT: - LINT: N_A (research-only task, no code changes)"
+    },
+    "unit_tests": {
+      "pass": null,
+      "details": "COMPLETION REPORT: - UNIT_TESTS: N_A (research-only task, no code changes)"
+    },
+    "compile": {
+      "pass": null,
+      "details": "COMPLETION REPORT: - COMPILE: N_A (research-only task, no code changes)"
+    },
+    "ios_lint": {
+      "pass": false,
+      "details": "NOT FOUND \u2014 none of ['swiftlint'] appeared in sub-agent results"
+    },
+    "ios_test": {
+      "pass": false,
+      "details": "NOT FOUND \u2014 none of ['xcodebuild test', 'AmpTests', 'AmpSnapshotTestPlan'] appeared in sub-agent results"
+    },
+    "maestro": {
+      "pass": null,
+      "details": "COMPLETION REPORT: - MAESTRO: SKIPPED (research-only task, no UI changes)"
+    },
+    "pr_created": {
+      "pass": false,
+      "details": "No successful PR creation found"
+    }
+  },
+  "overall_pass": false
+}
