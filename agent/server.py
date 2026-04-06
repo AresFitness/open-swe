@@ -557,6 +557,9 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
             "agent_knowledge": repo_agent_knowledge.get(rname, {}),
         }
 
+    # Use the sandbox work dir as working_dir so the agent sees all repos
+    work_dir = await aresolve_sandbox_work_dir(sandbox_backend)
+
     subagent_configs = build_subagent_configs(repo_data, work_dir)
 
     # Read Superpowers skill files if enabled
@@ -569,9 +572,6 @@ async def get_agent(config: RunnableConfig) -> Pregel:  # noqa: PLR0915
                 with open(skill_path) as f:
                     superpowers_prompt += f"\n### Superpowers Skill: {skill_name}\n{f.read()}\n"
         logger.info("Superpowers enabled with %d chars of skill prompts", len(superpowers_prompt))
-
-    # Use the sandbox work dir as working_dir so the agent sees all repos
-    work_dir = await aresolve_sandbox_work_dir(sandbox_backend)
 
     logger.info("Returning agent with sandbox for thread %s", thread_id)
     return create_deep_agent(

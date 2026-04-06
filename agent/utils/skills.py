@@ -46,7 +46,7 @@ async def _scan_skills_dir(
         logger.debug("No skills found under %s", skills_dir)
         return {}
 
-    skill_paths = [p for p in output.splitlines() if p.strip()]
+    skill_paths = [p for p in output.splitlines() if p.strip() and p.strip().startswith("/")]
     skills: dict[str, dict] = {}
 
     skills_base = f"{repo_dir}/{subdir}/"
