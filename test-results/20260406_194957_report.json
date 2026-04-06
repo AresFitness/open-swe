@@ -1,0 +1,70 @@
+{
+  "task": "Add a new isCommunityWorkout boolean field to the planned workout model. This field marks workouts created by the Amp customer community. On the iOS app, community workouts should display a unique icon/badge on the workout preview screen to distinguish them from coach-created workouts. This is a cross-repo feature: backend schema + iOS UI.",
+  "task_type": "cross-repo",
+  "thread_id": "e4c5b74d-3c08-4bb8-b320-143b5a2cbbe6",
+  "run_id": "019d6441-3ed6-7671-ae44-640b5c27f50d",
+  "status": "success",
+  "duration_seconds": 1514.7964129447937,
+  "total_messages": 36,
+  "total_tool_calls": 17,
+  "delegations": [
+    {
+      "subagent": "RedefinedFitness",
+      "description": "Research the backend codebase for the planned workout model. I need to understand:\n\n1. Find the GraphQL schema definition for PlannedWorkout (search in `amplify/backend/api/` or similar). Show me the full type definition.\n2. Find the database schema/model for PlannedWorkout (search in packages that ",
+      "msg_idx": 3
+    },
+    {
+      "subagent": "amp-ios",
+      "description": "Research the iOS codebase for the workout preview screen and PlannedWorkout model. I need to understand:\n\n1. Find the Swift model/generated type for PlannedWorkout (search in `Modules/AmpNetworking/Sources/Graph/` for generated types).\n2. Find the GraphQL query/fragment that fetches PlannedWorkout d",
+      "msg_idx": 3
+    },
+    {
+      "subagent": "RedefinedFitness",
+      "description": "Add the `isCommunityWorkout` field to the PlannedWorkout type in two backend GraphQL schema files, then run codegen and verification.\n\n## Changes Required\n\n### 1. Amplify Schema\n**File:** `/private/tmp/amp-swe-sandbox/RedefinedFitness/amplify/backend/api/RedefineFitnessApi/schema/planned-workout.gra",
+      "msg_idx": 21
+    }
+  ],
+  "checks": {
+    "plan_before_build": {
+      "pass": true,
+      "details": "Plan at msg #11, no impl delegation found"
+    },
+    "orchestrator_no_write": {
+      "pass": true,
+      "details": "17 tool calls, 0 write violations"
+    },
+    "typecheck": {
+      "pass": true,
+      "details": "COMPLETION REPORT: - TYPECHECK: PASS \u2014 `pnpm typecheck` exited 0, no errors"
+    },
+    "lint": {
+      "pass": true,
+      "details": "COMPLETION REPORT: - LINT: PASS \u2014 `pnpm lint` exited 0, 0 errors (444 pre-existing warnings)"
+    },
+    "unit_tests": {
+      "pass": null,
+      "details": "COMPLETION REPORT: - UNIT_TESTS: N_A \u2014 Research-only task, no code changes"
+    },
+    "compile": {
+      "pass": true,
+      "details": "COMPLETION REPORT: - GENERATE (pnpm generate): PASS (partial) \u2014 gql-compile succeeded, codegen:api succeeded, codegen:d"
+    },
+    "ios_lint": {
+      "pass": false,
+      "details": "NOT FOUND \u2014 none of ['swiftlint'] appeared in sub-agent results"
+    },
+    "ios_test": {
+      "pass": false,
+      "details": "NOT FOUND \u2014 none of ['xcodebuild test', 'AmpTests', 'AmpSnapshotTestPlan'] appeared in sub-agent results"
+    },
+    "maestro": {
+      "pass": null,
+      "details": "COMPLETION REPORT: - MAESTRO: SKIPPED \u2014 Research-only task, not a UI change"
+    },
+    "pr_created": {
+      "pass": true,
+      "details": "https://github.com/AresFitness/RedefinedFitness/pull/3922"
+    }
+  },
+  "overall_pass": false
+}
