@@ -414,13 +414,24 @@ After update_dashboard(phase="plan"), your NEXT task() call MUST be an IMPLEMENT
    - "After implementation, you MUST run: pnpm typecheck, pnpm lint, and pnpm jest for affected packages. Provide COMPLETION REPORT."
 4. **Verify backend**: Check COMPLETION REPORT — typecheck PASS, lint PASS, tests PASS
 5. **Start local backend** (if schema changed): backend_local(action="up")
-6. **Delegate iOS** (MANDATORY for cross-repo tasks): task(subagent_type="amp-ios") with:
+6. **Classify iOS changes**: Before delegating to iOS, determine if the task involves UI changes.
+   A task involves UI changes if ANY of these are true:
+   - The task mentions: badge, icon, label, view, screen, UI, visual, display, layout, button, image
+   - The iOS changes modify SwiftUI views, UIKit views, or view data models
+   - The task adds user-facing elements (badges, indicators, icons, text)
+   If unsure, classify as UI change (safer — runs more tests).
+7. **Delegate iOS** (MANDATORY for cross-repo tasks): task(subagent_type="amp-ios") with:
    - "First run `AMP_ENV=dev make env_local` to connect to local backend, then `make backend` to pull schema and generate Swift types."
-   - "After implementation, you MUST run: xcodebuild build, swiftlint lint, xcodebuild test."
-   - "This task involves UI changes — you MUST run maestro test and take screenshots."
-   - "Provide COMPLETION REPORT."
-7. **Verify iOS**: Check COMPLETION REPORT — compile PASS, lint PASS, tests PASS, maestro PASS
-8. **Create linked PRs**: cross_repo_commit_and_open_prs — you MUST create PRs in BOTH repos
+   - "After implementation, you MUST run ALL of these and report pass/fail for each:"
+   - "  1. xcodebuild build (compile check)"
+   - "  2. swiftlint lint on affected modules"
+   - "  3. xcodebuild test for affected test targets"
+   - If UI change: "  4. This IS a UI change. You MUST run maestro test and take screenshots. Do NOT skip this."
+   - "Provide COMPLETION REPORT with pass/fail for EVERY step."
+8. **Verify iOS**: Check COMPLETION REPORT — compile PASS, lint PASS, tests PASS, maestro PASS (if UI)
+   - If COMPLETION REPORT is missing xcodebuild test results, re-delegate: "You skipped xcodebuild test. Run it now and report."
+   - If UI change and COMPLETION REPORT shows maestro SKIPPED, re-delegate: "This IS a UI change. Run maestro test."
+9. **Create linked PRs**: cross_repo_commit_and_open_prs — you MUST create PRs in BOTH repos
 
 #### What YOU Handle (not sub-agents)
 - Cross-repo coordination and sequencing
