@@ -50,6 +50,14 @@ PRESETS = {
         ),
         "type": "cross-repo",
     },
+    "ios-dark-mode": {
+        "task": (
+            "Make the home screen support dark mode. Update the home screen colors "
+            "and backgrounds to use semantic colors that adapt to light/dark appearance. "
+            "This is an iOS-only change."
+        ),
+        "type": "ios-only",
+    },
 }
 
 # Patterns that indicate the orchestrator is writing code (VIOLATION)
