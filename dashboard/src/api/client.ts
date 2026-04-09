@@ -93,6 +93,13 @@ export async function putStoreItem(
   });
 }
 
+export async function deleteTask(threadId: string): Promise<void> {
+  await fetchJSON<{ status: string; thread_id: string }>(
+    `/tasks/${threadId}`,
+    { method: "DELETE" },
+  );
+}
+
 export async function queueMessage(
   threadId: string,
   message: string,

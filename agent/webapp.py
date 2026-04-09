@@ -1112,6 +1112,85 @@ async def health_check() -> dict[str, str]:
     return {"status": "healthy"}
 
 
+# --- Task deletion ---
+
+@app.delete("/tasks/{thread_id}")
+async def delete_task(thread_id: str) -> dict[str, str]:
+    """Delete a task: cancel runs, remove sandbox directory, clean up store and thread.
+
+    Safety: validates that the resolved sandbox path is under the sandbox root
+    to prevent path-traversal attacks.
+    """
+    import shutil
+
+    from .utils.sandbox_state import SANDBOX_BACKENDS
+
+    langgraph_client = get_client(url=LANGGRAPH_URL)
+    sandbox_root = os.environ.get("LOCAL_SANDBOX_ROOT_DIR", "")
+
+    # 1. Cancel any active runs for the thread
+    try:
+        runs = await langgraph_client.runs.list(thread_id, limit=10)
+        for run in runs:
+            if run.get("status") in ("pending", "running"):
+                try:
+                    await langgraph_client.runs.cancel(thread_id, run["run_id"])
+                    logger.info("Cancelled run %s for thread %s", run["run_id"], thread_id)
+                except Exception:
+                    logger.warning("Failed to cancel run %s", run["run_id"], exc_info=True)
+    except Exception:
+        logger.warning("Failed to list runs for thread %s", thread_id, exc_info=True)
+
+    # 2. Remove sandbox directory with path traversal safety check
+    if sandbox_root:
+        real_root = os.path.realpath(sandbox_root)
+        sandbox_dir = os.path.join(sandbox_root, thread_id)
+        real_sandbox_dir = os.path.realpath(sandbox_dir)
+
+        if not real_sandbox_dir.startswith(real_root + os.sep) and real_sandbox_dir != real_root:
+            logger.error(
+                "Path traversal detected: %s is not under %s", real_sandbox_dir, real_root
+            )
+            raise HTTPException(status_code=400, detail="Invalid thread_id")
+
+        if os.path.isdir(real_sandbox_dir):
+            try:
+                shutil.rmtree(real_sandbox_dir)
+                logger.info("Removed sandbox directory %s", real_sandbox_dir)
+            except Exception:
+                logger.exception("Failed to remove sandbox directory %s", real_sandbox_dir)
+
+    # 3. Remove from SANDBOX_BACKENDS cache
+    SANDBOX_BACKENDS.pop(thread_id, None)
+
+    # 4. Clean up LangGraph store items (dashboard, queue)
+    for namespace_prefix in [("dashboard", thread_id), ("queue", thread_id)]:
+        try:
+            items = await langgraph_client.store.search_items(namespace_prefix, limit=100)
+            for item in items:
+                await langgraph_client.store.delete_item(
+                    item["namespace"], item["key"]
+                )
+                logger.info("Deleted store item %s/%s", item["namespace"], item["key"])
+        except Exception:
+            logger.debug(
+                "No store items to clean for namespace %s", namespace_prefix, exc_info=True
+            )
+
+    # 5. Delete the LangGraph thread
+    try:
+        await langgraph_client.threads.delete(thread_id)
+        logger.info("Deleted LangGraph thread %s", thread_id)
+    except Exception as exc:
+        if _is_not_found_error(exc):
+            logger.info("Thread %s already deleted or not found", thread_id)
+        else:
+            logger.exception("Failed to delete thread %s", thread_id)
+            raise HTTPException(status_code=500, detail="Failed to delete thread")
+
+    return {"status": "deleted", "thread_id": thread_id}
+
+
 # --- Sandbox file serving (screenshots, etc.) ---
 
 SANDBOX_ROOT = os.environ.get("LOCAL_SANDBOX_ROOT_DIR", "/tmp/amp-swe-sandbox")
