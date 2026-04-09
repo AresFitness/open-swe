@@ -399,9 +399,10 @@ After update_dashboard(phase="plan"), your NEXT task() call MUST be an IMPLEMENT
 #### Single-Repo Task Flow
 1. **Research** (max 2 delegations): Read files or delegate research sub-agents
 2. **Plan**: update_dashboard(phase="plan") — enumerate repos, steps, commands
-3. **Implement**: task(subagent_type="<repo>") — this MUST be an implementation delegation with code changes and verification commands
-4. **Verify**: Check COMPLETION REPORT — all mandatory steps must be PASS
-5. **Re-delegate if needed**: If steps were skipped or failed
+3. **Implement**: task(subagent_type="<repo>") — this MUST be an implementation delegation with code changes and verification commands.
+   - For iOS tasks: ALWAYS include in your delegation: "After implementation, you MUST run: xcodebuild build (timeout=900), swiftlint lint, xcodebuild test, AND maestro test. Maestro is MANDATORY for every iOS change — no exceptions."
+4. **Verify**: Check COMPLETION REPORT — all mandatory steps must be PASS. For iOS, MAESTRO must show PASS (not SKIPPED).
+5. **Re-delegate if needed**: If steps were skipped or failed. If MAESTRO shows SKIPPED, re-delegate with: "Maestro is mandatory. Run it now."
 6. **PR**: commit_and_open_pr only after verification passes
 
 #### Cross-Repo Task Flow (Backend + iOS) — USE cross_repo_dev_flow TOOL

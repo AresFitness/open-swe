@@ -314,7 +314,11 @@ class ComplianceAuditor:
     def check_ios_maestro(self) -> CheckResult:
         if self.task_type == "backend-only":
             return CheckResult("ios_maestro", None, "N/A (backend-only task)")
-        return self._check_step_in_results("maestro", ["maestro test", "maestro"])
+        result = self._check_step_in_results("maestro", ["maestro test", "maestro"])
+        # For iOS tasks, SKIPPED maestro is a FAIL — it's mandatory for every iOS change
+        if result.passed is None and "SKIPPED" in result.details.upper():
+            return CheckResult("ios_maestro", False, f"FAIL — Maestro was skipped but is mandatory for all iOS tasks. {result.details}")
+        return result
 
     def check_pr_created(self) -> CheckResult:
         for m in self.messages:

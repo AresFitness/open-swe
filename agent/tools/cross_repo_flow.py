@@ -133,13 +133,6 @@ def cross_repo_dev_flow(
         _flow_state["backend_verified"] = True
         _flow_state["phase"] = "ios_pending"
 
-        ui_instructions = ""
-        if _flow_state["is_ui_change"]:
-            ui_instructions = (
-                "5. This IS a UI change — you MUST run maestro test and take screenshots. "
-                "Do NOT skip this.\n"
-            )
-
         return {
             "success": True,
             "phase": "ios_pending",
@@ -153,10 +146,10 @@ def cross_repo_dev_flow(
                 "2. Run `make backend` to pull the updated schema and generate Swift types\n"
                 "3. Implement the iOS changes (badge, UI, model updates)\n"
                 "4. After implementation, you MUST run ALL of these and report pass/fail:\n"
-                "   a. xcodebuild build (compile check)\n"
+                "   a. xcodebuild build (compile check) — use timeout=900\n"
                 "   b. swiftlint lint on affected modules\n"
-                "   c. xcodebuild test for affected test targets\n"
-                f"{ui_instructions}"
+                "   c. xcodebuild test for affected test targets — use timeout=900\n"
+                "   d. maestro test — MANDATORY for every iOS change, no exceptions\n"
                 "Provide COMPLETION REPORT at the end."
             ),
             "message": (
