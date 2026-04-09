@@ -120,7 +120,14 @@ class TaskRunner:
         thread = await self.client.threads.create(metadata={})
         return thread["thread_id"]
 
-    async def submit_task(self, thread_id: str, task: str) -> str:
+    async def submit_task(self, thread_id: str, task: str, dry_run: bool = False) -> str:
+        if dry_run:
+            task += (
+                "\n\nIMPORTANT: This is a DRY RUN. Do NOT commit, push, or create PRs. "
+                "Do NOT call commit_and_open_pr or cross_repo_commit_and_open_prs. "
+                "Only implement the changes and run all verification steps (typecheck, lint, test, maestro). "
+                "Report the COMPLETION REPORT as usual."
+            )
         run = await self.client.runs.create(
             thread_id=thread_id,
             assistant_id="agent",
@@ -337,8 +344,8 @@ class ComplianceAuditor:
                                 return CheckResult("pr_created", True, "PR created (parsed from text)")
         return CheckResult("pr_created", False, "No successful PR creation found")
 
-    def run_all_checks(self) -> list[CheckResult]:
-        return [
+    def run_all_checks(self, dry_run: bool = False) -> list[CheckResult]:
+        checks = [
             self.check_plan_before_build(),
             self.check_orchestrator_no_write(),
             self.check_backend_typecheck(),
@@ -348,8 +355,12 @@ class ComplianceAuditor:
             self.check_ios_lint(),
             self.check_ios_test(),
             self.check_ios_maestro(),
-            self.check_pr_created(),
         ]
+        if dry_run:
+            checks.append(CheckResult("pr_created", None, "N/A (dry run — no PR expected)"))
+        else:
+            checks.append(self.check_pr_created())
+        return checks
 
 
 def print_report(report: AuditReport):
@@ -477,6 +488,7 @@ async def run_test(
     output_dir: Path,
     timeout: int,
     reset_repos: bool,
+    dry_run: bool = False,
 ) -> AuditReport:
     if reset_repos:
         reset_sandbox_repos()
@@ -489,7 +501,7 @@ async def run_test(
         thread_id = await runner.create_thread()
         logger.info("Created thread: %s", thread_id)
 
-        run_id = await runner.submit_task(thread_id, task)
+        run_id = await runner.submit_task(thread_id, task, dry_run=dry_run)
         logger.info("Submitted run: %s", run_id)
 
         # Poll for completion
@@ -506,7 +518,7 @@ async def run_test(
 
         # Audit
         auditor = ComplianceAuditor(messages, task_type)
-        checks = auditor.run_all_checks()
+        checks = auditor.run_all_checks(dry_run=dry_run)
 
         # Count tool calls
         total_tool_calls = sum(
@@ -551,6 +563,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default="test-results", help="Output directory for reports")
     parser.add_argument("--timeout", type=int, default=3600, help="Max seconds to wait (default: 3600 = 60min)")
     parser.add_argument("--reset-repos", action="store_true", help="Reset sandbox repos before running")
+    parser.add_argument("--dry-run", action="store_true", default=True,
+                       help="Don't commit/push/PR — only implement and verify (default: true)")
+    parser.add_argument("--no-dry-run", action="store_false", dest="dry_run",
+                       help="Allow commit/push/PR creation")
     return parser.parse_args()
 
 
@@ -578,6 +594,7 @@ def main():
             output_dir=Path(args.output_dir),
             timeout=args.timeout,
             reset_repos=args.reset_repos,
+            dry_run=args.dry_run,
         )
     )
 
