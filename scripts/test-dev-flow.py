@@ -545,7 +545,7 @@ def parse_args() -> argparse.Namespace:
                        help="Task type (required with --task)")
     parser.add_argument("--langgraph-url", default="http://localhost:2024")
     parser.add_argument("--output-dir", default="test-results", help="Output directory for reports")
-    parser.add_argument("--timeout", type=int, default=2400, help="Max seconds to wait (default: 2400)")
+    parser.add_argument("--timeout", type=int, default=3600, help="Max seconds to wait (default: 3600 = 60min)")
     parser.add_argument("--reset-repos", action="store_true", help="Reset sandbox repos before running")
     return parser.parse_args()
 
