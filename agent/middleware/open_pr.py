@@ -28,6 +28,7 @@ from ..utils.github import (
     get_github_default_branch,
     git_add_all,
     git_checkout_branch,
+    git_checkout_existing_branch,
     git_commit,
     git_config_user,
     git_current_branch,
@@ -142,8 +143,7 @@ async def open_pr_if_needed(
             if branch_name:
                 # Existing branch — plain checkout, do not create or reset
                 await asyncio.to_thread(
-                    sandbox_backend.execute,
-                    f"cd {repo_dir} && git checkout {target_branch}",
+                    git_checkout_existing_branch, sandbox_backend, repo_dir, target_branch
                 )
             else:
                 await asyncio.to_thread(
@@ -160,9 +160,7 @@ async def open_pr_if_needed(
         await asyncio.to_thread(git_add_all, sandbox_backend, repo_dir)
         await asyncio.to_thread(git_commit, sandbox_backend, repo_dir, commit_message)
 
-        await asyncio.to_thread(
-            git_push, sandbox_backend, repo_dir, target_branch, installation_token
-        )
+        await asyncio.to_thread(git_push, sandbox_backend, repo_dir, target_branch)
 
         base_branch = await get_github_default_branch(repo_owner, repo_name, installation_token)
         logger.info("Using base branch: %s", base_branch)
